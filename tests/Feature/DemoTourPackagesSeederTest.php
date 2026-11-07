@@ -93,14 +93,36 @@ it('seeds twelve publishable demo packages idempotently', function (): void {
     expect($packages->every(fn (Package $package): bool => $package->status === 'active'))->toBeTrue();
     expect($packages->every(fn (Package $package): bool => (float) $package->price > 0))->toBeTrue();
 
+    $expectedDays = today()
+        ->diffInDays(today()->addMonthsNoOverflow(DemoTourPackagesSeeder::SCHEDULE_MONTHS)->subDay()) + 1;
+
     foreach ($packages as $package) {
-        $futureReady = TourDate::withoutGlobalScopes()
+        $futureDates = TourDate::withoutGlobalScopes()
             ->where('package_id', $package->id)
             ->whereDate('tour_date', '>=', today()->toDateString())
+            ->whereDate(
+                'tour_date',
+                '<=',
+                today()->addMonthsNoOverflow(DemoTourPackagesSeeder::SCHEDULE_MONTHS)->subDay()->toDateString()
+            )
+            ->orderBy('tour_date')
+            ->get();
+
+        expect($futureDates)->toHaveCount($expectedDays);
+        expect((int) $futureDates->first()->capacity)->toBe(DemoTourPackagesSeeder::DEMO_CAPACITY);
+
+        $dayStrings = $futureDates->map(
+            fn (TourDate $tourDate): string => $tourDate->tour_date->toDateString()
+        )->all();
+
+        // Daily calendar — not weekly gaps like Nov 11 / 18 / 25 only.
+        expect($dayStrings[1] ?? null)->toBe(today()->addDay()->toDateString());
+
+        $futureReady = $futureDates
             ->where('travel_closed', false)
-            ->whereHas('times')
-            ->whereHas('pickupSchedules')
-            ->exists();
+            ->filter(fn (TourDate $tourDate): bool => $tourDate->times()->exists()
+                && $tourDate->pickupSchedules()->exists())
+            ->isNotEmpty();
 
         expect($futureReady)->toBeTrue();
         expect($package->inclusions()->count())->toBeGreaterThan(0);

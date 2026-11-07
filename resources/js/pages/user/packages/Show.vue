@@ -188,7 +188,13 @@ const calendarMarkers = computed<Record<string, CalendarMarker>>(() => {
     );
 });
 
+const selectedUnscheduledDate = ref<string | null>(null);
+
 const selectedAvailabilityTitle = computed(() => {
+    if (selectedUnscheduledDate.value && ! selectedTourDate.value) {
+        return 'No Schedule Available';
+    }
+
     const tourDate = selectedTourDate.value;
 
     if (! tourDate) {
@@ -200,6 +206,10 @@ const selectedAvailabilityTitle = computed(() => {
 });
 
 const selectedAvailabilityReason = computed(() => {
+    if (selectedUnscheduledDate.value && ! selectedTourDate.value) {
+        return 'No Schedule Available: This tour has no departure scheduled for this date. Please choose another available date.';
+    }
+
     const tourDate = selectedTourDate.value;
 
     if (! tourDate) {
@@ -216,6 +226,18 @@ const firstTourDate = computed(() => props.package.tour_dates[0]?.tour_date.slic
 const selectedTourDate = computed(
     () => props.package.tour_dates.find((item) => item.id === selectedTourDateId.value) ?? null,
 );
+
+const selectedCalendarDateLabel = computed(() => {
+    if (selectedTourDate.value) {
+        return formatDate(selectedTourDate.value.tour_date);
+    }
+
+    if (selectedUnscheduledDate.value) {
+        return formatDate(selectedUnscheduledDate.value);
+    }
+
+    return null;
+});
 
 const mobileSelectedDates = computed(() => {
     if (selectedTourDate.value) {
@@ -248,6 +270,10 @@ const selectedBookingHref = computed(() => {
 });
 
 const stickyCtaLabel = computed(() => {
+    if (selectedUnscheduledDate.value && ! selectedTourDate.value) {
+        return 'No Schedule Available';
+    }
+
     const tourDate = selectedTourDate.value;
 
     if (! tourDate) {
@@ -266,10 +292,13 @@ function selectTourDate(date: string): void {
         (item) => item.tour_date.slice(0, 10) === date,
     );
 
-    if (!tourDate) {
+    if (! tourDate) {
+        selectedTourDateId.value = null;
+        selectedUnscheduledDate.value = date;
         return;
     }
 
+    selectedUnscheduledDate.value = null;
     selectedTourDateId.value = tourDate.id;
 
     const target =
@@ -283,6 +312,7 @@ function selectTourDate(date: string): void {
 }
 
 function selectTourDateCard(tourDateId: number): void {
+    selectedUnscheduledDate.value = null;
     selectedTourDateId.value = tourDateId;
 }
 
@@ -670,8 +700,9 @@ function formatPrice(price: number | string): string {
                         <div class="space-y-3">
                             <MonthCalendar
                                 :markers="calendarMarkers"
-                                :selected="package.tour_dates.find((item) => item.id === selectedTourDateId)?.tour_date.slice(0, 10) ?? null"
+                                :selected="selectedTourDate?.tour_date.slice(0, 10) ?? selectedUnscheduledDate"
                                 :initial-date="firstTourDate"
+                                allow-empty
                                 @select="selectTourDate"
                             />
 
@@ -695,7 +726,7 @@ function formatPrice(price: number | string): string {
                             </div>
 
                             <div
-                                v-if="selectedTourDate"
+                                v-if="selectedCalendarDateLabel"
                                 class="rounded-2xl border p-3 text-sm"
                                 :class="canBookSelected
                                     ? 'border-primary/30 bg-primary/5'
@@ -705,12 +736,12 @@ function formatPrice(price: number | string): string {
                                     Selected date
                                 </p>
                                 <p class="mt-1 font-semibold text-foreground">
-                                    {{ formatDate(selectedTourDate.tour_date) }}
+                                    {{ selectedCalendarDateLabel }}
                                     <span class="text-muted-foreground">·</span>
                                     {{ selectedAvailabilityTitle }}
                                 </p>
                                 <p
-                                    v-if="canBookSelected"
+                                    v-if="canBookSelected && selectedTourDate"
                                     class="mt-1 text-xs text-primary"
                                 >
                                     {{ selectedTourDate.remaining_capacity }} of {{ selectedTourDate.capacity }} guest slots remaining.
@@ -722,7 +753,7 @@ function formatPrice(price: number | string): string {
                                     {{ selectedAvailabilityReason }}
                                 </p>
                                 <p
-                                    v-if="selectedTourDate.forecast_notice"
+                                    v-if="selectedTourDate?.forecast_notice"
                                     class="mt-2 text-xs leading-relaxed text-muted-foreground"
                                 >
                                     {{ selectedTourDate.forecast_notice }}

@@ -12,3 +12,23 @@ Schedule::command('weather:update')
     ->hourly()
     ->withoutOverlapping()
     ->runInBackground();
+
+/*
+|--------------------------------------------------------------------------
+| Demo rolling schedules
+|--------------------------------------------------------------------------
+|
+| When DEMO_TOUR_OPERATOR_ID is set (Railway Operator #1 for the capstone
+| demos), extend the next 12 months of daily tour dates weekly.
+| The seeder is idempotent: it adds missing dates only and does not
+| duplicate package_id + tour_date rows or rewrite booked dates.
+|
+*/
+$demoOperatorId = (int) env('DEMO_TOUR_OPERATOR_ID', 0);
+
+if ($demoOperatorId > 0) {
+    Schedule::command("demo:seed-tour-packages --operator={$demoOperatorId}")
+        ->weeklyOn(1, '02:15')
+        ->withoutOverlapping()
+        ->runInBackground();
+}

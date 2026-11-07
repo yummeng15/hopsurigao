@@ -24,8 +24,17 @@ class DemoTourPackagesSeeder extends Seeder
 {
     public const DEMO_MARKER = 'HopSurigao Capstone Demo Package';
 
+    /** Rolling booking window length for demo tour dates. */
+    public const SCHEDULE_MONTHS = 12;
+
     /**
-     * @var list<array{package: string, action: string, status: string, reason: string|null, dates: int}>
+     * Demo guest slots per tour date for capstone demonstration only.
+     * This value must never be treated as a certified vessel safety limit.
+     */
+    public const DEMO_CAPACITY = 60;
+
+    /**
+     * @var list<array{package: string, action: string, status: string, reason: string|null, dates: int, dates_existing?: int, dates_missing?: int}>
      */
     public array $report = [];
 
@@ -92,15 +101,45 @@ class DemoTourPackagesSeeder extends Seeder
             ->first();
 
         if ($this->dryRun) {
+            $neededDates = $this->scheduleDates($index);
+            $existingDates = [];
+
+            if ($existing !== null) {
+                $existingDates = TourDate::withoutGlobalScopes()
+                    ->where('package_id', $existing->id)
+                    ->whereDate('tour_date', '>=', Carbon::today()->toDateString())
+                    ->whereDate(
+                        'tour_date',
+                        '<=',
+                        Carbon::today()->addMonthsNoOverflow(self::SCHEDULE_MONTHS)->subDay()->toDateString()
+                    )
+                    ->pluck('tour_date')
+                    ->map(fn ($date): string => Carbon::parse($date)->toDateString())
+                    ->all();
+            }
+
+            $missing = array_values(array_diff($neededDates, $existingDates));
             $action = $existing ? 'would-update' : 'would-create';
+
             $this->report[] = [
                 'package' => $spec['package_name'],
                 'action' => $action,
                 'status' => $existing?->status ?? 'inactive',
-                'reason' => null,
-                'dates' => count($this->scheduleDates($index)),
+                'reason' => sprintf(
+                    'window=%d days; existing=%d; would_add=%d; capacity=%d',
+                    count($neededDates),
+                    count($existingDates),
+                    count($missing),
+                    (int) $spec['capacity']
+                ),
+                'dates' => count($neededDates),
+                'dates_existing' => count($existingDates),
+                'dates_missing' => count($missing),
             ];
-            $this->command?->line("  [dry-run] {$action}: {$spec['package_name']}");
+            $this->command?->line(
+                "  [dry-run] {$action}: {$spec['package_name']} — existing ".count($existingDates).
+                ', missing '.count($missing).' of '.count($neededDates).' daily dates'
+            );
 
             return;
         }
@@ -252,16 +291,28 @@ class DemoTourPackagesSeeder extends Seeder
                 ->exists();
 
             if (! $hasBookings) {
+                $departureTime = $this->resolveDepartureTime(
+                    $package,
+                    $tourDate,
+                    (string) $spec['departure_time'],
+                    $index
+                );
+
+                $pickupTime = $this->resolvePickupTime(
+                    (string) $spec['pickup_time'],
+                    $departureTime
+                );
+
                 $tourDate->times()->delete();
                 $tourDate->times()->create([
-                    'time' => $spec['departure_time'],
+                    'time' => $departureTime,
                     'description' => 'Departure',
                 ]);
 
                 $tourDate->pickupSchedules()->delete();
                 $tourDate->pickupSchedules()->create([
                     'pickup_location_id' => $pickupId,
-                    'pickup_time' => $spec['pickup_time'],
+                    'pickup_time' => $pickupTime,
                 ]);
             }
 
@@ -272,21 +323,79 @@ class DemoTourPackagesSeeder extends Seeder
     }
 
     /**
+     * Every calendar day for the next 12 months (including weekends).
+     *
      * @return list<string>
      */
     private function scheduleDates(int $index): array
     {
-        // Stagger packages so the same calendar day is not overloaded across boats.
-        $dates = [];
-        $startOffset = 2 + ($index % 3);
+        unset($index);
 
-        for ($week = 0; $week < 5; $week++) {
-            $dates[] = Carbon::today()
-                ->addDays($startOffset + ($week * 7))
-                ->toDateString();
+        $dates = [];
+        $start = Carbon::today();
+        $end = Carbon::today()->addMonthsNoOverflow(self::SCHEDULE_MONTHS)->subDay();
+
+        for ($day = $start->copy(); $day->lte($end); $day->addDay()) {
+            $dates[] = $day->toDateString();
         }
 
         return $dates;
+    }
+
+    /**
+     * Keep the same boat from departing twice at the same clock time.
+     * Demo packages use distinct boats; this still guards collisions safely.
+     */
+    private function resolveDepartureTime(
+        Package $package,
+        TourDate $tourDate,
+        string $desiredTime,
+        int $index
+    ): string {
+        $candidate = Carbon::createFromFormat('H:i', substr($desiredTime, 0, 5))
+            ?: Carbon::createFromTime(8, 0);
+
+        // Light per-package stagger reduces same-minute pier congestion.
+        $candidate->addMinutes(($index % 4) * 15);
+
+        for ($attempt = 0; $attempt < 16; $attempt++) {
+            $time = $candidate->format('H:i');
+
+            $conflict = TourDate::withoutGlobalScopes()
+                ->where('id', '!=', $tourDate->id)
+                ->whereDate('tour_date', $tourDate->tour_date->toDateString())
+                ->whereHas('package', function ($query) use ($package): void {
+                    $query->withoutGlobalScopes()
+                        ->where('boat_name', $package->boat_name)
+                        ->where('id', '!=', $package->id);
+                })
+                ->whereHas('times', function ($query) use ($time): void {
+                    $query->whereTime('time', $time);
+                })
+                ->exists();
+
+            if (! $conflict) {
+                return $time;
+            }
+
+            $candidate->addMinutes(15);
+        }
+
+        return $candidate->format('H:i');
+    }
+
+    private function resolvePickupTime(string $desiredPickup, string $departureTime): string
+    {
+        $pickup = Carbon::createFromFormat('H:i', substr($desiredPickup, 0, 5))
+            ?: Carbon::createFromTime(7, 0);
+        $departure = Carbon::createFromFormat('H:i', substr($departureTime, 0, 5))
+            ?: Carbon::createFromTime(8, 0);
+
+        if ($pickup->gte($departure)) {
+            $pickup = $departure->copy()->subHour();
+        }
+
+        return $pickup->format('H:i');
     }
 
     /**

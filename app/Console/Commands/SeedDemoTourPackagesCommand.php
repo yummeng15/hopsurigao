@@ -59,8 +59,12 @@ class SeedDemoTourPackagesCommand extends Command
 
         $published = collect($seeder->report)->where('status', 'Published')->count();
         $blocked = collect($seeder->report)->where('status', 'Blocked')->count();
+        $missingDates = (int) collect($seeder->report)->sum(fn (array $row): int => (int) ($row['dates_missing'] ?? 0));
+        $windowDates = (int) collect($seeder->report)->sum(fn (array $row): int => (int) ($row['dates'] ?? 0));
 
         $this->line("Published: {$published} | Blocked/Draft issues: {$blocked}");
+        $this->line("Schedule window total (all packages): {$windowDates} date-rows | missing to add: {$missingDates}");
+        $this->comment('Demo schedules are daily for '.DemoTourPackagesSeeder::SCHEDULE_MONTHS.' months at '.DemoTourPackagesSeeder::DEMO_CAPACITY.' guest slots (demo only).');
 
         if (! $dryRun) {
             $this->comment('Tourists see packages with status=active and future open schedules.');
