@@ -14,6 +14,10 @@ Route::get('/', HomeController::class)->name('home');
 Route::view('/privacy-policy', 'privacy-policy')
     ->name('privacy-policy');
 
+    
+Route::view('/terms-of-service', 'terms-of-service')
+    ->name('terms-of-service');
+
 
 Route::middleware('guest')->group(function () {
     Route::get('register/operator', [OperatorRegistrationController::class, 'create'])->name('register.operator');
