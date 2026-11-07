@@ -10,6 +10,11 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/', HomeController::class)->name('home');
 
+
+Route::view('/privacy-policy', 'privacy-policy')
+    ->name('privacy-policy');
+
+
 Route::middleware('guest')->group(function () {
     Route::get('register/operator', [OperatorRegistrationController::class, 'create'])->name('register.operator');
     Route::post('register/operator', [OperatorRegistrationController::class, 'store'])->name('register.operator.store');
@@ -30,6 +35,8 @@ Route::middleware('guest')->group(function () {
         ->middleware('throttle:5,1')
         ->name('password.update');
 });
+
+
 
 // Public endpoint: the webhook controller must validate PayMongo signatures.
 Route::post('paymongo/webhook', PayMongoWebhookController::class)->name('paymongo.webhook');
