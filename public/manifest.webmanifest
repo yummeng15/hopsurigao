@@ -1,0 +1,27 @@
+
+{
+  "id": "/tourist",
+  "name": "HopSurigao - Island Hopping",
+  "short_name": "HopSurigao",
+  "description": "Mobile island-hopping tour reservations and booking management in Surigao del Norte.",
+  "start_url": "/user/dashboard",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#FFFFFF",
+  "theme_color": "#0F4C5C",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
