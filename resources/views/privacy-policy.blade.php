@@ -128,7 +128,7 @@
     <h2>10. Contact Us</h2>
     <p>
         For privacy-related questions, contact:
-        <strong>REPLACE_WITH_CONTACT_EMAIL</strong>
+        <strong>melodyhuerta2@gmail.com</strong>
     </p>
 </main>
 </body>

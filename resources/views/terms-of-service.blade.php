@@ -122,7 +122,7 @@
     <h2>11. Contact Information</h2>
     <p>
         For questions about these terms, contact:
-        REPLACE_WITH_CONTACT_EMAIL
+        melodyhuerta2@gmail.com
     </p>
 </main>
 </body>
