@@ -48,7 +48,6 @@ class OperatorScheduleController extends Controller
                 ])->values()->all(),
             ])->values()->all();
 
-        // Only shared or this operator's active pickup points can be selected.
         $locations = PickupLocation::query()
             ->where('status', 'active')
             ->where(fn ($query) => $query
@@ -79,7 +78,7 @@ class OperatorScheduleController extends Controller
         $record = $this->ownedPackage($operatorId, $package);
         $data = $this->validateSchedule($request, $operatorId, true);
 
-        DB::transaction(function () use ($record, $data): void {
+        DB::transaction(function () use ($record, $data, $operatorId): void {
             if ($record->tourDates()->whereDate('tour_date', $data['tour_date'])->exists()) {
                 throw ValidationException::withMessages([
                     'tour_date' => 'A schedule already exists for this package and date.',
@@ -92,7 +91,7 @@ class OperatorScheduleController extends Controller
                 'travel_closed' => false,
             ]);
 
-            $this->replaceDetails($date, $data);
+            $this->replaceDetails($date, $data, $operatorId);
         });
 
         return redirect()->route('operator.schedules.index', $record->id)
@@ -104,10 +103,11 @@ class OperatorScheduleController extends Controller
         $operatorId = $this->operatorId($request);
         $record = $this->ownedPackage($operatorId, $package);
 
-        // There is deliberately no tour_date input on an update.
-        // A booking must never be silently moved onto a different day.
         DB::transaction(function () use ($request, $record, $tourDate, $operatorId): void {
-            $date = $record->tourDates()->whereKey($tourDate)->lockForUpdate()->firstOrFail();
+            $date = $record->tourDates()
+                ->whereKey($tourDate)
+                ->lockForUpdate()
+                ->firstOrFail();
 
             if ($date->tour_date->isBefore(today())) {
                 throw ValidationException::withMessages([
@@ -117,8 +117,7 @@ class OperatorScheduleController extends Controller
 
             $hasBookings = $date->bookings()->exists();
 
-            // Once any booking exists, times and pickup points are locked.
-            // Only a capacity adjustment is permitted.
+            // Protect existing bookings from schedule changes.
             if ($hasBookings && ($request->exists('times') || $request->exists('pickup_schedules'))) {
                 throw ValidationException::withMessages([
                     'capacity' => 'Tour times and pickups cannot change after a booking exists. Update capacity only.',
@@ -126,7 +125,9 @@ class OperatorScheduleController extends Controller
             }
 
             $data = $hasBookings
-                ? $request->validate(['capacity' => ['required', 'integer', 'min:1', 'max:10000']])
+                ? $request->validate([
+                    'capacity' => ['required', 'integer', 'min:1', 'max:10000'],
+                ])
                 : $this->validateSchedule($request, $operatorId, false);
 
             $reserved = (int) $date->bookings()
@@ -139,10 +140,12 @@ class OperatorScheduleController extends Controller
                 ]);
             }
 
-            $date->update(['capacity' => $data['capacity']]);
+            $date->update([
+                'capacity' => $data['capacity'],
+            ]);
 
             if (! $hasBookings) {
-                $this->replaceDetails($date, $data);
+                $this->replaceDetails($date, $data, $operatorId);
             }
         });
 
@@ -167,30 +170,76 @@ class OperatorScheduleController extends Controller
             ->findOrFail($id);
     }
 
-    /** @return array<string, mixed> */
+    /**
+     * @return array<string, mixed>
+     */
     private function validateSchedule(Request $request, int $operatorId, bool $creating): array
     {
         $rules = [
-            'capacity' => ['required', 'integer', 'min:1', 'max:10000'],
-            'times' => ['required', 'array', 'min:1', 'max:8'],
-            'times.*.time' => ['required', 'date_format:H:i', 'distinct'],
-            'times.*.description' => ['required', 'string', 'max:255'],
-            'pickup_schedules' => ['required', 'array', 'min:1', 'max:15'],
-            'pickup_schedules.*.pickup_location_id' => [
-                'required', 'integer', 'distinct',
-                Rule::exists('pickup_locations', 'id')->where(function ($query) use ($operatorId): void {
-                    $query->where('status', 'active')
-                        ->where(function ($scope) use ($operatorId): void {
-                            $scope->whereNull('tour_operator_id')
-                                ->orWhere('tour_operator_id', $operatorId);
-                        });
-                }),
+            'capacity' => [
+                'required',
+                'integer',
+                'min:1',
+                'max:10000',
             ],
-            'pickup_schedules.*.pickup_time' => ['required', 'date_format:H:i'],
+            'times' => [
+                'required',
+                'array',
+                'min:1',
+                'max:8',
+            ],
+            'times.*.time' => [
+                'required',
+                'date_format:H:i',
+                'distinct',
+            ],
+            'times.*.description' => [
+                'required',
+                'string',
+                'max:255',
+            ],
+            'pickup_schedules' => [
+                'required',
+                'array',
+                'min:1',
+                'max:15',
+            ],
+
+            // Accept locations typed directly by the operator.
+            'pickup_schedules.*.pickup_location_name' => [
+                'required_without:pickup_schedules.*.pickup_location_id',
+                'nullable',
+                'string',
+                'max:255',
+            ],
+
+            // Preserve support for existing location IDs.
+            'pickup_schedules.*.pickup_location_id' => [
+                'required_without:pickup_schedules.*.pickup_location_name',
+                'nullable',
+                'integer',
+                'distinct',
+                Rule::exists('pickup_locations', 'id')
+                    ->where(function ($query) use ($operatorId): void {
+                        $query->where('status', 'active')
+                            ->where(function ($scope) use ($operatorId): void {
+                                $scope->whereNull('tour_operator_id')
+                                    ->orWhere('tour_operator_id', $operatorId);
+                            });
+                    }),
+            ],
+            'pickup_schedules.*.pickup_time' => [
+                'required',
+                'date_format:H:i',
+            ],
         ];
 
         if ($creating) {
-            $rules['tour_date'] = ['required', 'date_format:Y-m-d', 'after_or_equal:today'];
+            $rules['tour_date'] = [
+                'required',
+                'date_format:Y-m-d',
+                'after_or_equal:today',
+            ];
         } else {
             $rules['tour_date'] = ['prohibited'];
         }
@@ -198,10 +247,12 @@ class OperatorScheduleController extends Controller
         return $request->validate($rules);
     }
 
-    /** @param array<string, mixed> $data */
-    private function replaceDetails(TourDate $date, array $data): void
+    /**
+     * @param array<string, mixed> $data
+     */
+    private function replaceDetails(TourDate $date, array $data, int $operatorId): void
     {
-        // Only called for new dates or dates with absolutely no bookings.
+        // Update departure times.
         $date->times()->delete();
 
         foreach ($data['times'] as $time) {
@@ -211,11 +262,44 @@ class OperatorScheduleController extends Controller
             ]);
         }
 
+        // Update pickup schedules.
         $date->pickupSchedules()->delete();
 
         foreach ($data['pickup_schedules'] as $pickup) {
+            $name = trim((string) ($pickup['pickup_location_name'] ?? ''));
+
+            if ($name !== '') {
+                // Look for an existing active location.
+                $location = PickupLocation::query()
+                    ->where('status', 'active')
+                    ->where(function ($query) use ($operatorId): void {
+                        $query->where('tour_operator_id', $operatorId)
+                            ->orWhereNull('tour_operator_id');
+                    })
+                    ->whereRaw('LOWER(name) = LOWER(?)', [$name])
+                    ->orderByRaw(
+                        'CASE WHEN tour_operator_id = ? THEN 0 ELSE 1 END',
+                        [$operatorId]
+                    )
+                    ->first();
+
+                if (! $location) {
+                    // The PickupLocation model automatically
+                    // assigns the logged-in tour operator.
+                    $location = PickupLocation::create([
+                        'name' => $name,
+                        'status' => 'active',
+                    ]);
+                }
+
+                $locationId = (int) $location->id;
+            } else {
+                // Existing ID-based pickup.
+                $locationId = (int) $pickup['pickup_location_id'];
+            }
+
             $date->pickupSchedules()->create([
-                'pickup_location_id' => $pickup['pickup_location_id'],
+                'pickup_location_id' => $locationId,
                 'pickup_time' => $pickup['pickup_time'],
             ]);
         }
