@@ -6,8 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\Package;
 use App\Services\FileUploadService;
 use App\Services\TourDateAvailabilityService;
+use App\Services\TourDateBookingAvailability;
 use App\Services\UploadPath;
-use App\Services\WeatherAdvisoryService;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -15,7 +15,7 @@ class PackageController extends Controller
 {
     public function __construct(
         private FileUploadService $files,
-        private WeatherAdvisoryService $weatherAdvisory,
+        private TourDateBookingAvailability $bookingAvailability,
         private TourDateAvailabilityService $tourDates,
     ) {}
 
@@ -126,28 +126,17 @@ class PackageController extends Controller
              *
              * Cancelled bookings do NOT consume capacity.
              */
-                $bookedGuests = $tourDate->bookings
+                $bookedGuests = (int) $tourDate->bookings
                     ->sum('number_of_guests');
 
-                $remainingCapacity = max(
-                    0,
-                    $tourDate->capacity - $bookedGuests
+                $forecast = $tourDate->weatherForecast;
+                $availability = $this->bookingAvailability->assess(
+                    $package,
+                    $tourDate,
+                    $bookedGuests,
+                    $forecast?->advisory_level,
+                    $forecast !== null,
                 );
-
-                $closure = $this->weatherAdvisory->bookingClosure(
-                    (bool) $tourDate->travel_closed,
-                    $tourDate->weatherForecast?->advisory_level,
-                );
-
-                if ($package->under_maintenance) {
-                    $closure ??= 'This boat is under maintenance. Booking is not allowed.';
-                }
-
-                $package->loadMissing('tourOperator');
-
-                if (! $package->tourOperator?->acceptsBookings()) {
-                    $closure ??= 'This tour is not available until its operator is approved.';
-                }
 
                 return [
                     'id' => $tourDate->id,
@@ -160,15 +149,25 @@ class PackageController extends Controller
 
                     'booked_guests' => $bookedGuests,
 
-                    'remaining_capacity' => $remainingCapacity,
+                    'remaining_capacity' => $availability['remaining_capacity'],
 
-                    'is_full' => $remainingCapacity <= 0,
+                    'is_full' => $availability['is_full'],
 
-                    'booking_closed' => $closure !== null,
+                    'availability_status' => $availability['status'],
 
-                    'booking_closed_reason' => $closure,
+                    'availability_label' => $availability['label'],
 
-                    'weather_forecast' => $tourDate->weatherForecast,
+                    'availability_reason' => $availability['reason'],
+
+                    'forecast_notice' => $availability['forecast_notice'],
+
+                    'booking_closed' => $availability['booking_closed'],
+
+                    'booking_closed_reason' => $availability['booking_closed_reason'],
+
+                    'bookable' => $availability['bookable'],
+
+                    'weather_forecast' => $forecast,
 
                     'times' => $tourDate->times,
 

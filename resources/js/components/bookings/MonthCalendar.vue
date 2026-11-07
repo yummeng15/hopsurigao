@@ -2,7 +2,7 @@
 import { computed, ref, watch } from 'vue';
 import { ChevronLeft, ChevronRight } from '@lucide/vue';
 
-export type CalendarTone = 'available' | 'limited' | 'full' | 'booked';
+export type CalendarTone = 'available' | 'limited' | 'full' | 'booked' | 'closed';
 
 export type CalendarMarker = {
     tone: CalendarTone;
@@ -129,6 +129,10 @@ function cellClass(key: string, marker: CalendarMarker | null): string {
 
     if (marker?.tone === 'full') {
         return 'bg-destructive/15 font-semibold text-destructive';
+    }
+
+    if (marker?.tone === 'closed') {
+        return 'bg-slate-500/15 font-semibold text-slate-700 dark:text-slate-300';
     }
 
     if (marker?.tone === 'limited') {

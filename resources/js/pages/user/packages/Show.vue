@@ -97,8 +97,13 @@ type TourDate = {
     booked_guests: number;
     remaining_capacity: number;
     is_full: boolean;
+    availability_status?: string;
+    availability_label?: string | null;
+    availability_reason?: string | null;
+    forecast_notice?: string | null;
     booking_closed?: boolean;
     booking_closed_reason?: string | null;
+    bookable?: boolean;
     times: TourTime[];
     pickup_schedules: PickupSchedule[];
     weather_forecast?: WeatherForecastData | null;
@@ -167,15 +172,42 @@ function selectPickup(tourDateId: number, pickupId: number): void {
 const calendarMarkers = computed<Record<string, CalendarMarker>>(() => {
     return Object.fromEntries(
         props.package.tour_dates.map((tourDate) => {
-            const tone: CalendarMarker['tone'] = tourDate.is_full
-                ? 'full'
-                : tourDate.remaining_capacity <= 5
-                    ? 'limited'
-                    : 'available';
+            let tone: CalendarMarker['tone'] = 'available';
+
+            if (tourDate.is_full) {
+                tone = 'full';
+            } else if (tourDate.booking_closed || tourDate.bookable === false) {
+                tone = 'closed';
+            } else if (tourDate.remaining_capacity <= 5) {
+                tone = 'limited';
+            }
 
             return [tourDate.tour_date.slice(0, 10), { tone }];
         }),
     );
+});
+
+const selectedAvailabilityTitle = computed(() => {
+    const tourDate = selectedTourDate.value;
+
+    if (! tourDate) {
+        return null;
+    }
+
+    return tourDate.availability_label
+        ?? (tourDate.is_full ? 'Fully Booked' : tourDate.booking_closed ? 'Travel Closed' : 'Available');
+});
+
+const selectedAvailabilityReason = computed(() => {
+    const tourDate = selectedTourDate.value;
+
+    if (! tourDate) {
+        return null;
+    }
+
+    return tourDate.availability_reason
+        ?? tourDate.booking_closed_reason
+        ?? (tourDate.is_full ? 'All guest slots have already been reserved.' : null);
 });
 
 const firstTourDate = computed(() => props.package.tour_dates[0]?.tour_date.slice(0, 10) ?? null);
@@ -195,7 +227,15 @@ const mobileSelectedDates = computed(() => {
 const canBookSelected = computed(() => {
     const tourDate = selectedTourDate.value;
 
-    return Boolean(tourDate && !tourDate.is_full && !tourDate.booking_closed);
+    if (! tourDate) {
+        return false;
+    }
+
+    if (typeof tourDate.bookable === 'boolean') {
+        return tourDate.bookable;
+    }
+
+    return ! tourDate.is_full && ! tourDate.booking_closed;
 });
 
 const selectedBookingHref = computed(() => {
@@ -209,16 +249,12 @@ const selectedBookingHref = computed(() => {
 const stickyCtaLabel = computed(() => {
     const tourDate = selectedTourDate.value;
 
-    if (!tourDate) {
+    if (! tourDate) {
         return 'Pick a date';
     }
 
-    if (tourDate.booking_closed) {
-        return 'Travel closed';
-    }
-
-    if (tourDate.is_full) {
-        return 'Fully booked';
+    if (! canBookSelected.value) {
+        return selectedAvailabilityTitle.value ?? 'Unavailable';
     }
 
     return 'Book this date';
@@ -250,12 +286,16 @@ function selectTourDateCard(tourDateId: number): void {
 }
 
 onMounted(() => {
-    const firstOpen = props.package.tour_dates.find(
-        (tourDate) => !tourDate.is_full && !tourDate.booking_closed,
-    );
+    const firstOpen = props.package.tour_dates.find((tourDate) => {
+        if (typeof tourDate.bookable === 'boolean') {
+            return tourDate.bookable;
+        }
+
+        return ! tourDate.is_full && ! tourDate.booking_closed;
+    });
 
     selectedTourDateId.value = firstOpen?.id ?? props.package.tour_dates[0]?.id ?? null;
-})
+});
 /*
 |--------------------------------------------------------------------------
 | Image Actions
@@ -648,8 +688,47 @@ function formatPrice(price: number | string): string {
                                 </span>
                                 <span class="inline-flex items-center gap-1.5">
                                     <span class="h-2.5 w-2.5 rounded-full bg-destructive" />
-                                    Full
+                                    Fully booked
                                 </span>
+                                <span class="inline-flex items-center gap-1.5">
+                                    <span class="h-2.5 w-2.5 rounded-full bg-slate-500" />
+                                    Travel closed
+                                </span>
+                            </div>
+
+                            <div
+                                v-if="selectedTourDate"
+                                class="rounded-2xl border p-3 text-sm"
+                                :class="canBookSelected
+                                    ? 'border-primary/30 bg-primary/5'
+                                    : 'border-amber-500/30 bg-amber-500/5'"
+                            >
+                                <p class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                                    Selected date
+                                </p>
+                                <p class="mt-1 font-semibold text-foreground">
+                                    {{ formatDate(selectedTourDate.tour_date) }}
+                                    <span class="text-muted-foreground">·</span>
+                                    {{ selectedAvailabilityTitle }}
+                                </p>
+                                <p
+                                    v-if="canBookSelected"
+                                    class="mt-1 text-xs text-primary"
+                                >
+                                    {{ selectedTourDate.remaining_capacity }} of {{ selectedTourDate.capacity }} guest slots remaining.
+                                </p>
+                                <p
+                                    v-if="selectedAvailabilityReason"
+                                    class="mt-2 text-xs leading-relaxed text-foreground"
+                                >
+                                    {{ selectedAvailabilityReason }}
+                                </p>
+                                <p
+                                    v-if="selectedTourDate.forecast_notice"
+                                    class="mt-2 text-xs leading-relaxed text-muted-foreground"
+                                >
+                                    {{ selectedTourDate.forecast_notice }}
+                                </p>
                             </div>
                         </div>
 
@@ -673,11 +752,26 @@ function formatPrice(price: number | string): string {
                                         </h3>
                                         <p class="mt-1 text-xs text-muted-foreground">
                                             <span
-                                                :class="tourDate.remaining_capacity > 0 ? 'font-medium text-primary' : 'font-medium text-destructive'"
+                                                :class="tourDate.bookable === false || tourDate.is_full || tourDate.booking_closed
+                                                    ? 'font-medium text-destructive'
+                                                    : 'font-medium text-primary'"
                                             >
-                                                {{ tourDate.remaining_capacity > 0 ? `${tourDate.remaining_capacity} seats left` : 'Fully booked' }}
+                                                {{ tourDate.availability_label
+                                                    ?? (tourDate.is_full ? 'Fully Booked' : tourDate.booking_closed ? 'Travel Closed' : `${tourDate.remaining_capacity} seats left`) }}
                                             </span>
                                             <span v-if="package.boat_name"> · {{ package.boat_name }}</span>
+                                        </p>
+                                        <p
+                                            v-if="tourDate.availability_reason || tourDate.booking_closed_reason"
+                                            class="mt-2 text-xs leading-relaxed text-foreground"
+                                        >
+                                            {{ tourDate.availability_reason || tourDate.booking_closed_reason }}
+                                        </p>
+                                        <p
+                                            v-else-if="tourDate.bookable !== false && !tourDate.is_full"
+                                            class="mt-1 text-xs text-primary"
+                                        >
+                                            {{ tourDate.remaining_capacity }} of {{ tourDate.capacity }} guest slots remaining.
                                         </p>
                                         <div
                                             v-if="tourDate.times.length"
@@ -730,7 +824,7 @@ function formatPrice(price: number | string): string {
                                                 {{ package.boat_name }}
                                             </span>
                                             <span
-                                                v-if="!tourDate.booking_closed && !tourDate.is_full"
+                                                v-if="tourDate.bookable !== false && !tourDate.booking_closed && !tourDate.is_full"
                                                 class="font-semibold text-primary"
                                             >
                                                 Available
@@ -743,28 +837,44 @@ function formatPrice(price: number | string): string {
                                             </span>
                                             <span class="text-muted-foreground">•</span>
                                             <span
-                                                :class="tourDate.remaining_capacity > 0 ? 'text-primary font-medium' : 'text-destructive font-medium'"
+                                                :class="tourDate.remaining_capacity > 0 && tourDate.bookable !== false
+                                                    ? 'text-primary font-medium'
+                                                    : 'text-destructive font-medium'"
                                             >
-                                                {{ tourDate.remaining_capacity > 0 ? `${tourDate.remaining_capacity} seats left` : 'Fully booked' }}
+                                                {{ tourDate.availability_label
+                                                    ?? (tourDate.remaining_capacity > 0 ? `${tourDate.remaining_capacity} seats left` : 'Fully booked') }}
                                             </span>
                                         </div>
+                                        <p
+                                            v-if="tourDate.availability_reason || tourDate.booking_closed_reason"
+                                            class="mt-2 max-w-xl text-xs leading-relaxed text-foreground"
+                                        >
+                                            {{ tourDate.availability_reason || tourDate.booking_closed_reason }}
+                                        </p>
+                                        <p
+                                            v-else-if="tourDate.bookable !== false && !tourDate.is_full"
+                                            class="mt-2 text-xs text-primary"
+                                        >
+                                            {{ tourDate.remaining_capacity }} of {{ tourDate.capacity }} guest slots remaining.
+                                        </p>
                                     </div>
                                 </div>
 
                                 <!-- Action CTA -->
                                 <div>
                                     <Button
-                                        v-if="tourDate.booking_closed"
+                                        v-if="tourDate.bookable === false || tourDate.booking_closed || tourDate.is_full"
                                         disabled
                                         variant="outline"
                                         class="w-full cursor-not-allowed rounded-xl opacity-60 sm:w-auto"
-                                        :title="tourDate.booking_closed_reason ?? 'Travel is closed'"
+                                        :title="tourDate.availability_reason || tourDate.booking_closed_reason || 'Unavailable'"
                                     >
-                                        Travel closed
+                                        {{ tourDate.availability_label
+                                            ?? (tourDate.is_full ? 'Fully Booked' : 'Travel Closed') }}
                                     </Button>
 
                                     <Button
-                                        v-else-if="!tourDate.is_full"
+                                        v-else
                                         as-child
                                         class="w-full rounded-xl shadow-xs sm:w-auto"
                                     >
@@ -772,15 +882,6 @@ function formatPrice(price: number | string): string {
                                             <span>Book This Date</span>
                                             <ArrowRight class="h-4 w-4" />
                                         </Link>
-                                    </Button>
-
-                                    <Button
-                                        v-else
-                                        disabled
-                                        variant="outline"
-                                        class="w-full cursor-not-allowed rounded-xl opacity-60 sm:w-auto"
-                                    >
-                                        Fully Booked
                                     </Button>
                                 </div>
                             </div>
@@ -833,7 +934,7 @@ function formatPrice(price: number | string): string {
                                 class="mt-4 flex items-center gap-2 rounded-xl border border-dashed bg-background/60 p-3 text-xs text-muted-foreground"
                             >
                                 <CloudSun class="h-3.5 w-3.5 shrink-0 text-primary" />
-                                <span>Weather advisory for this date appears here before you book.</span>
+                                <span>{{ tourDate.forecast_notice || 'Weather forecast is not yet available for this date.' }}</span>
                             </div>
 
                             <!-- Tour Times & Pickup Meta -->

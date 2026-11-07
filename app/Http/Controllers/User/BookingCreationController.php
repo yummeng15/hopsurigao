@@ -11,7 +11,7 @@ use App\Models\TourDate;
 use App\Models\TourOperator;
 use App\Models\User;
 use App\Notifications\BookingCreatedNotification;
-use App\Services\WeatherAdvisoryService;
+use App\Services\TourDateBookingAvailability;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
@@ -22,7 +22,7 @@ use Inertia\Inertia;
 class BookingCreationController extends Controller
 {
     public function __construct(
-        private WeatherAdvisoryService $weather
+        private TourDateBookingAvailability $availability,
     ) {}
 
     public function __invoke(StoreBookingRequest $request): RedirectResponse
@@ -45,26 +45,17 @@ class BookingCreationController extends Controller
                 ->lockForUpdate()
                 ->firstOrFail();
 
-            if (
-                $package->status !== 'active' ||
-                (bool) $package->under_maintenance
-            ) {
+            if ($package->status !== 'active') {
                 throw ValidationException::withMessages([
-                    'tour_date_id' => 'This tour package is unavailable or its boat is under maintenance.',
+                    'tour_date_id' => 'This tour package is unavailable.',
                 ]);
             }
 
-            $operator = $package->tour_operator_id === null
-                ? null
-                : TourOperator::query()
+            if ($package->tour_operator_id !== null) {
+                TourOperator::query()
                     ->whereKey($package->tour_operator_id)
                     ->lockForUpdate()
                     ->first();
-
-            if ($operator === null || ! $operator->acceptsBookings()) {
-                throw ValidationException::withMessages([
-                    'tour_date_id' => 'This tour operator is not currently active.',
-                ]);
             }
 
             if ($date->tour_date->toDateString() < today()->toDateString()) {
@@ -74,14 +65,21 @@ class BookingCreationController extends Controller
             }
 
             $forecast = $date->weatherForecast()->lockForUpdate()->first();
-            $closure = $this->weather->bookingClosure(
-                (bool) $date->travel_closed,
-                $forecast?->advisory_level
+            $reservedPreview = (int) $date->bookings()
+                ->whereIn('booking_status', ['pending', 'confirmed'])
+                ->sum('number_of_guests');
+
+            $assessment = $this->availability->assess(
+                $package,
+                $date,
+                $reservedPreview,
+                $forecast?->advisory_level,
+                $forecast !== null,
             );
 
-            if ($closure !== null) {
+            if (! $assessment['bookable']) {
                 throw ValidationException::withMessages([
-                    'tour_date_id' => $closure,
+                    'tour_date_id' => $assessment['reason'] ?? 'This tour date is unavailable.',
                 ]);
             }
 

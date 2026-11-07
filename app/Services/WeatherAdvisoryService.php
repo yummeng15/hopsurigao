@@ -157,12 +157,12 @@ class WeatherAdvisoryService
 
     public function bookingClosure(bool $travelClosed, ?string $level): ?string
     {
-        if ($travelClosed) {
-            return 'Travel is closed for this date. Booking is not allowed.';
+        if ($this->blocksTravel($level)) {
+            return 'Travel Closed: Unfavorable weather conditions. Booking is temporarily unavailable for this date. Please choose another available date.';
         }
 
-        if ($this->blocksTravel($level)) {
-            return 'Booking is closed because of dangerous weather or strong wind.';
+        if ($travelClosed) {
+            return 'This tour date has been closed by the tour operator.';
         }
 
         return null;

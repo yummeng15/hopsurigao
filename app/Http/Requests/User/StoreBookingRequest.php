@@ -5,7 +5,7 @@ namespace App\Http\Requests\User;
 use App\Models\Booking;
 use App\Models\PickupSchedule;
 use App\Models\TourDate;
-use App\Services\WeatherAdvisoryService;
+use App\Services\TourDateBookingAvailability;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -85,28 +85,30 @@ class StoreBookingRequest extends FormRequest
             }
 
             $tourDate = TourDate::query()
-                ->with('weatherForecast')
+                ->with(['weatherForecast', 'package.tourOperator'])
                 ->find($this->integer('tour_date_id'));
 
             if (! $tourDate) {
                 return;
             }
 
-            $closure = app(WeatherAdvisoryService::class)->bookingClosure(
-                (bool) $tourDate->travel_closed,
+            $bookedGuests = (int) Booking::query()
+                ->where('tour_date_id', $tourDate->id)
+                ->whereIn('booking_status', ['pending', 'confirmed'])
+                ->sum('number_of_guests');
+
+            $assessment = app(TourDateBookingAvailability::class)->assess(
+                $tourDate->package,
+                $tourDate,
+                $bookedGuests,
                 $tourDate->weatherForecast?->advisory_level,
+                $tourDate->weatherForecast !== null,
             );
 
-            if ($closure !== null) {
-                $validator->errors()->add('tour_date_id', $closure);
-            }
-
-            $tourDate->loadMissing('package');
-
-            if ($tourDate->package?->under_maintenance) {
+            if (! $assessment['bookable']) {
                 $validator->errors()->add(
                     'tour_date_id',
-                    'This boat is under maintenance. Booking is not allowed.',
+                    $assessment['reason'] ?? 'This tour date is unavailable.',
                 );
             }
 
