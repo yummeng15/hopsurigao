@@ -70,6 +70,15 @@ return [
             'path' => env('MAIL_SENDMAIL_PATH', '/usr/sbin/sendmail -bs -i'),
         ],
 
+        
+'gmail_api' => [
+    'transport' => 'gmail_api',
+    'client_id' => env('GMAIL_CLIENT_ID'),
+    'client_secret' => env('GMAIL_CLIENT_SECRET'),
+    'refresh_token' => env('GMAIL_REFRESH_TOKEN'),
+],
+
+
         'log' => [
             'transport' => 'log',
             'channel' => env('MAIL_LOG_CHANNEL'),
