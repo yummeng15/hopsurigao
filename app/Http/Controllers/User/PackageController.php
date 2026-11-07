@@ -7,7 +7,6 @@ use App\Models\Package;
 use App\Services\FileUploadService;
 use App\Services\TourDateAvailabilityService;
 use App\Services\TourDateBookingAvailability;
-use App\Services\UploadPath;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -56,10 +55,8 @@ class PackageController extends Controller
                         'weather_forecast' => $nextDate->weatherForecast,
                     ] : null,
 
-                    'images' => $this->files->images(
-                        UploadPath::package(
-                            $package->id
-                        )
+                    'images' => $this->files->packageImages(
+                        $package
                     ),
                 ];
             });
@@ -211,10 +208,8 @@ class PackageController extends Controller
                     'tour_dates' => $tourDates,
                 ],
 
-                'images' => $this->files->images(
-                    UploadPath::package(
-                        $package->id
-                    )
+                'images' => $this->files->packageImages(
+                    $package
                 ),
             ]
         );
@@ -234,10 +229,8 @@ class PackageController extends Controller
             'id' => $package->id,
             'package_name' => $package->package_name,
 
-            'images' => $this->files->images(
-                UploadPath::package(
-                    $package->id
-                )
+            'images' => $this->files->packageImages(
+                $package
             ),
         ]);
     }

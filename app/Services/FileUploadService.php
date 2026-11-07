@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Package;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use RuntimeException;
@@ -214,7 +215,7 @@ class FileUploadService
         |----------------------------------------------------------
         */
 
-        return '/storage/' . $cleanPath;
+        return '/storage/'.$cleanPath;
     }
 
     /**
@@ -245,6 +246,8 @@ class FileUploadService
 
     /**
      * List image files with their URLs.
+     *
+     * @return list<array{name: string, path: string, url: string|null}>
      */
     public function images(string $directory): array
     {
@@ -280,6 +283,60 @@ class FileUploadService
             })
             ->values()
             ->all();
+    }
+
+    /**
+     * Package gallery with the designated cover photo first.
+     *
+     * @return list<array{name: string, path: string, url: string|null}>
+     */
+    public function packageImages(Package $package): array
+    {
+        $images = $this->images(
+            UploadPath::package((int) $package->id)
+        );
+
+        $coverPath = is_string($package->cover_photo)
+            ? trim(str_replace('\\', '/', $package->cover_photo), '/')
+            : '';
+
+        if ($coverPath === '' || ! $this->exists($coverPath)) {
+            return $images;
+        }
+
+        $cover = [
+            'name' => basename($coverPath),
+            'path' => $coverPath,
+            'url' => $this->url($coverPath),
+        ];
+
+        $remainder = array_values(array_filter(
+            $images,
+            fn (array $image): bool => $image['path'] !== $coverPath
+        ));
+
+        return [$cover, ...$remainder];
+    }
+
+    /**
+     * Store or replace a package cover photo and return its stored path.
+     */
+    public function storePackageCover(
+        Package $package,
+        UploadedFile $file,
+        ?string $previousPath = null
+    ): string {
+        $directory = UploadPath::package((int) $package->id);
+
+        if (
+            is_string($previousPath)
+            && $previousPath !== ''
+            && $this->exists($previousPath)
+        ) {
+            $this->delete($previousPath);
+        }
+
+        return $this->store($file, $directory);
     }
 
     /**

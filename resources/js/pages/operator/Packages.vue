@@ -13,6 +13,7 @@ import {
     Globe,
     GlobeLock,
 } from '@lucide/vue';
+import PackagePhotoPlaceholder from '@/components/packages/PackagePhotoPlaceholder.vue';
 
 interface TourPackage {
     id: number;
@@ -23,6 +24,7 @@ interface TourPackage {
     status: string;
     under_maintenance: boolean;
     tour_dates_count: number;
+    cover_photo_url?: string | null;
 }
 
 interface PaginatedPackages {
@@ -138,8 +140,23 @@ function changePublication(tour: TourPackage): void {
                 <article
                     v-for="tour in packages.data"
                     :key="tour.id"
-                    class="rounded-3xl border border-border bg-card p-4 shadow-sm"
+                    class="overflow-hidden rounded-3xl border border-border bg-card shadow-sm"
                 >
+                    <div class="aspect-video bg-muted">
+                        <img
+                            v-if="tour.cover_photo_url"
+                            :src="tour.cover_photo_url"
+                            :alt="tour.package_name"
+                            class="h-full w-full object-cover"
+                        />
+                        <PackagePhotoPlaceholder
+                            v-else
+                            compact
+                            label="No photo yet"
+                        />
+                    </div>
+
+                    <div class="p-4">
                     <div class="flex items-start justify-between gap-3">
                         <h3 class="text-lg font-semibold text-foreground">
                             {{ tour.package_name }}
@@ -257,6 +274,7 @@ function changePublication(tour: TourPackage): void {
                         >
                             Add a valid tour schedule before publishing.
                         </p>
+                    </div>
                     </div>
                 </article>
             </div>

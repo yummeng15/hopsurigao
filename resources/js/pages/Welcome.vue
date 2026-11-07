@@ -38,6 +38,7 @@ import {
 } from '@lucide/vue';
 
 import AppearanceTabs from '@/components/AppearanceTabs.vue';
+import PackagePhotoPlaceholder from '@/components/packages/PackagePhotoPlaceholder.vue';
 import AppLogo from '@/components/AppLogo.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -220,20 +221,16 @@ function handleHeroImgError() {
 |--------------------------------------------------------------------------
 */
 
-const fallbackImages: Record<string, string> = {
-    'Siargao Tri-Island Hopping': 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1200&q=80',
-    'Sugba Lagoon Adventure': 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?auto=format&fit=crop&w=1200&q=80',
-    'Sohoton Bucas Grande Adventure': 'https://images.unsplash.com/photo-1518509562904-e7ef99cdcc86?auto=format&fit=crop&w=1200&q=80',
-    'Magpupungko Rock Pools Explorer': 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1200&q=80',
-    'Siargao Island Land & Sea Tour': 'https://images.unsplash.com/photo-1512100356356-de1b84283e18?auto=format&fit=crop&w=1200&q=80',
-};
-
 function getPackageImage(pkg: PackageItem): string {
-    if (pkg.featured_image) return pkg.featured_image;
+    if (pkg.featured_image) {
+        return pkg.featured_image;
+    }
+
     if (pkg.images && pkg.images.length > 0 && pkg.images[0]?.url) {
         return pkg.images[0].url;
     }
-    return fallbackImages[pkg.package_name] || 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1200&q=80';
+
+    return '';
 }
 
 /*
@@ -559,13 +556,10 @@ function scrollToSection(id: string) {
                                         class="h-full w-full object-cover transition duration-300 group-hover:scale-105"
                                     />
 
-                                    <div
+                                    <PackagePhotoPlaceholder
                                         v-else
-                                        class="flex h-full w-full flex-col items-center justify-center gap-2 bg-muted/40 text-muted-foreground"
-                                    >
-                                        <ImageOff class="h-6 w-6" />
-                                        <span class="text-xs">No image available</span>
-                                    </div>
+                                        label="Photo coming soon"
+                                    />
 
                                     <!-- Overlay Hover Badge -->
                                     <div class="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 transition duration-200 group-hover:opacity-100">

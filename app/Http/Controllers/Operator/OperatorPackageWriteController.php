@@ -5,9 +5,12 @@ namespace App\Http\Controllers\Operator;
 use App\Http\Controllers\Controller;
 use App\Models\Package;
 use App\Models\PackageDestination;
+use App\Services\FileUploadService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rules\File;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -23,6 +26,10 @@ use Inertia\Response;
  */
 class OperatorPackageWriteController extends Controller
 {
+    public function __construct(
+        private FileUploadService $files,
+    ) {}
+
     public function create(Request $request): Response
     {
         $this->operatorId($request);
@@ -38,14 +45,18 @@ class OperatorPackageWriteController extends Controller
     {
         $operatorId = $this->operatorId($request);
 
-        [$data, $destinations] = $this->validatedData($request);
+        [$data, $destinations, $photo] = $this->validatedData($request);
+
+        $packageId = null;
 
         DB::transaction(function () use (
             $operatorId,
             $data,
-            $destinations
+            $destinations,
+            $photo,
+            &$packageId
         ): void {
-            $package = new Package();
+            $package = new Package;
 
             $package->fill([
                 'package_name' => $data['package_name'],
@@ -68,6 +79,19 @@ class OperatorPackageWriteController extends Controller
                     'position' => $position,
                 ]);
             }
+
+            if ($photo instanceof UploadedFile) {
+                $path = $this->files->storePackageCover(
+                    $package,
+                    $photo
+                );
+
+                $package->forceFill([
+                    'cover_photo' => $path,
+                ])->save();
+            }
+
+            $packageId = (int) $package->id;
         });
 
         return redirect()
@@ -101,6 +125,9 @@ class OperatorPackageWriteController extends Controller
             );
         }
 
+        $coverImages = $this->files->packageImages($record);
+        $cover = $coverImages[0] ?? null;
+
         return Inertia::render('operator/PackageForm', [
             'mode' => 'edit',
 
@@ -115,6 +142,8 @@ class OperatorPackageWriteController extends Controller
                 'description' => $record->description,
                 'price' => (string) $record->price,
                 'status' => $record->status,
+                'cover_photo_url' => $cover['url'] ?? null,
+                'cover_photo_path' => $cover['path'] ?? null,
             ],
 
             'hasActiveBookings' => $this->hasActiveBookings(
@@ -134,7 +163,7 @@ class OperatorPackageWriteController extends Controller
             $package
         );
 
-        [$data, $destinations] = $this->validatedData(
+        [$data, $destinations, $photo] = $this->validatedData(
             $request
         );
 
@@ -186,7 +215,8 @@ class OperatorPackageWriteController extends Controller
             $record,
             $data,
             $destinations,
-            $oldDestinations
+            $oldDestinations,
+            $photo
         ): void {
             $record->fill([
                 'package_name' => $data['package_name'],
@@ -212,6 +242,18 @@ class OperatorPackageWriteController extends Controller
                         'position' => $position,
                     ]);
                 }
+            }
+
+            if ($photo instanceof UploadedFile) {
+                $path = $this->files->storePackageCover(
+                    $record,
+                    $photo,
+                    $record->cover_photo
+                );
+
+                $record->forceFill([
+                    'cover_photo' => $path,
+                ])->save();
             }
         });
 
@@ -250,7 +292,7 @@ class OperatorPackageWriteController extends Controller
     }
 
     /**
-     * @return array{0: array<string, mixed>, 1: list<string>}
+     * @return array{0: array<string, mixed>, 1: list<string>, 2: UploadedFile|null}
      */
     private function validatedData(Request $request): array
     {
@@ -281,6 +323,16 @@ class OperatorPackageWriteController extends Controller
                 'min:0',
                 'max:99999999.99',
             ],
+            'cover_photo' => [
+                'nullable',
+                File::image()
+                    ->types(['jpg', 'jpeg', 'png', 'webp'])
+                    ->max(5 * 1024),
+            ],
+        ], [
+            'cover_photo.image' => 'The package photo must be a valid image.',
+            'cover_photo.mimes' => 'The package photo must be a JPG, JPEG, PNG, or WebP file.',
+            'cover_photo.max' => 'The package photo may not be greater than 5 MB.',
         ]);
 
         $destinations = $this->destinationNames(
@@ -292,16 +344,14 @@ class OperatorPackageWriteController extends Controller
             count($destinations) > 12
         ) {
             throw ValidationException::withMessages([
-                'destinations_text' =>
-                    'Enter between 1 and 12 destinations, one per line.',
+                'destinations_text' => 'Enter between 1 and 12 destinations, one per line.',
             ]);
         }
 
         foreach ($destinations as $name) {
             if (mb_strlen($name) > 255) {
                 throw ValidationException::withMessages([
-                    'destinations_text' =>
-                        'Each destination must be 255 characters or fewer.',
+                    'destinations_text' => 'Each destination must be 255 characters or fewer.',
                 ]);
             }
         }
@@ -310,12 +360,17 @@ class OperatorPackageWriteController extends Controller
             mb_strlen(implode(', ', $destinations)) > 255
         ) {
             throw ValidationException::withMessages([
-                'destinations_text' =>
-                    'The combined destination names must be 255 characters or fewer.',
+                'destinations_text' => 'The combined destination names must be 255 characters or fewer.',
             ]);
         }
 
-        return [$data, $destinations];
+        $photo = $request->file('cover_photo');
+
+        return [
+            $data,
+            $destinations,
+            $photo instanceof UploadedFile ? $photo : null,
+        ];
     }
 
     /**

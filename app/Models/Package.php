@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+
 class Package extends Model
 {
     /**
@@ -23,6 +24,7 @@ class Package extends Model
         'latitude',
         'longitude',
         'description',
+        'cover_photo',
         'price',
         'status',
         'under_maintenance',
@@ -138,7 +140,7 @@ class Package extends Model
                 ) {
                     throw new AuthorizationException(
                         'Your tour operator is not active '
-                        . 'or has not been assigned.'
+                        .'or has not been assigned.'
                         .'or has not been assigned.'
                     );
                 }

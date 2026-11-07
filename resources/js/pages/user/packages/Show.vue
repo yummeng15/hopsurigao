@@ -44,6 +44,7 @@ import TourRoute from '@/components/tours/TourRoute.vue';
 import PickupMap from '@/components/maps/PickupMap.vue';
 import WeatherAdvisoryBadge from '@/components/weather/WeatherAdvisoryBadge.vue';
 import { type WeatherForecastData } from '@/components/weather/WeatherAdvisoryCard.vue';
+import PackagePhotoPlaceholder from '@/components/packages/PackagePhotoPlaceholder.vue';
 
 /*
 |--------------------------------------------------------------------------
@@ -482,12 +483,9 @@ function formatPrice(price: number | string): string {
 
                             <div
                                 v-else
-                                class="flex aspect-[4/3] w-full flex-col items-center justify-center border-dashed bg-muted/30 text-muted-foreground md:aspect-video md:rounded-2xl md:border"
+                                class="aspect-[4/3] w-full overflow-hidden border-dashed md:aspect-video md:rounded-2xl md:border"
                             >
-                                <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-                                    <ImageOff class="h-6 w-6" />
-                                </div>
-                                <p class="mt-3 text-xs font-medium text-muted-foreground">No photos uploaded for this package</p>
+                                <PackagePhotoPlaceholder label="Photo coming soon" />
                             </div>
                         </div>
 

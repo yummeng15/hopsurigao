@@ -14,7 +14,6 @@ import {
     CloudSun,
     Compass,
     Eye,
-    ImageOff,
     Images,
     MapPin,
     PackageSearch,
@@ -24,6 +23,7 @@ import {
 
 import { index, show } from '@/routes/user/packages';
 import PackageImageDialog from '@/pages/user/packages/PackageImageDialog.vue';
+import PackagePhotoPlaceholder from '@/components/packages/PackagePhotoPlaceholder.vue';
 import WeatherAdvisoryBadge from '@/components/weather/WeatherAdvisoryBadge.vue';
 import { type WeatherForecastData } from '@/components/weather/WeatherAdvisoryCard.vue';
 
@@ -192,13 +192,10 @@ function formatPrice(price: number | string): string {
                                     class="h-full w-full object-cover transition duration-300 group-hover:scale-105"
                                 />
 
-                                <div
+                                <PackagePhotoPlaceholder
                                     v-else
-                                    class="flex h-full w-full flex-col items-center justify-center gap-2 bg-muted/40 text-muted-foreground"
-                                >
-                                    <ImageOff class="h-6 w-6" />
-                                    <span class="text-xs">No image available</span>
-                                </div>
+                                    label="Photo coming soon"
+                                />
 
                                 <!-- Overlay Hover Badge -->
                                 <div class="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 transition duration-200 group-hover:opacity-100">

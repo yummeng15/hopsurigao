@@ -8,7 +8,6 @@ use App\Models\PickupLocation;
 use App\Models\TourDate;
 use App\Models\WeatherForecast;
 use App\Services\FileUploadService;
-use App\Services\UploadPath;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -37,7 +36,7 @@ class HomeController extends Controller
             ->latest()
             ->get()
             ->map(function (Package $package) {
-                $allImages = $this->files->images(UploadPath::package($package->id));
+                $allImages = $this->files->packageImages($package);
                 $tourDates = $package->tourDates;
                 $nextDate = $tourDates->first();
 
@@ -47,35 +46,35 @@ class HomeController extends Controller
                         ->sum('number_of_guests');
 
                     return [
-                        'id'                 => $td->id,
-                        'tour_date'          => $td->tour_date->toDateString(),
-                        'capacity'           => $td->capacity,
-                        'booked_guests'      => $bookedGuests,
+                        'id' => $td->id,
+                        'tour_date' => $td->tour_date->toDateString(),
+                        'capacity' => $td->capacity,
+                        'booked_guests' => $bookedGuests,
                         'remaining_capacity' => max(0, $td->capacity - $bookedGuests),
-                        'weather_forecast'   => $td->weatherForecast,
+                        'weather_forecast' => $td->weatherForecast,
                     ];
                 })->values();
 
                 return [
-                    'id'               => $package->id,
-                    'package_name'     => $package->package_name,
-                    'destination'      => $package->destination,
-                    'description'      => $package->description,
-                    'price'            => (float) $package->price,
-                    'status'           => $package->status,
-                    'latitude'         => (float) ($package->latitude ?? 9.8583),
-                    'longitude'        => (float) ($package->longitude ?? 126.0461),
+                    'id' => $package->id,
+                    'package_name' => $package->package_name,
+                    'destination' => $package->destination,
+                    'description' => $package->description,
+                    'price' => (float) $package->price,
+                    'status' => $package->status,
+                    'latitude' => (float) ($package->latitude ?? 9.8583),
+                    'longitude' => (float) ($package->longitude ?? 126.0461),
                     'tour_dates_count' => $tourDates->count(),
-                    'inclusions'       => $package->inclusions->pluck('description')->values(),
-                    'reminders'        => $package->reminders->pluck('description')->values(),
-                    'next_tour_date'   => $nextDate ? [
-                        'tour_date'        => $nextDate->tour_date->toDateString(),
+                    'inclusions' => $package->inclusions->pluck('description')->values(),
+                    'reminders' => $package->reminders->pluck('description')->values(),
+                    'next_tour_date' => $nextDate ? [
+                        'tour_date' => $nextDate->tour_date->toDateString(),
                         'weather_forecast' => $nextDate->weatherForecast,
-                        'capacity'         => $nextDate->capacity,
+                        'capacity' => $nextDate->capacity,
                     ] : null,
-                    'upcoming_dates'   => $upcomingDatesFormatted,
-                    'images'           => $allImages,
-                    'featured_image'   => ! empty($allImages) ? $allImages[0]['url'] : null,
+                    'upcoming_dates' => $upcomingDatesFormatted,
+                    'images' => $allImages,
+                    'featured_image' => ! empty($allImages) ? $allImages[0]['url'] : null,
                 ];
             });
 
@@ -95,17 +94,17 @@ class HomeController extends Controller
         $dominantMessage = $forecasts->first()?->advisory_message ?? 'Calm maritime waters with optimal visibility across all island hopping routes.';
 
         $marineConditions = [
-            'temperature'          => $avgTemp,
-            'wind_speed'           => $avgWind,
+            'temperature' => $avgTemp,
+            'wind_speed' => $avgWind,
             'rainfall_probability' => $avgRainProb,
-            'weather_condition'    => $dominantCondition,
-            'advisory_level'       => $dominantLevel,
-            'advisory_badge'       => $dominantBadge,
-            'advisory_message'     => $dominantMessage,
-            'green_count'          => $forecasts->where('advisory_level', 'green')->count(),
-            'yellow_count'         => $forecasts->where('advisory_level', 'yellow')->count(),
-            'orange_count'         => $forecasts->where('advisory_level', 'orange')->count(),
-            'red_count'            => $forecasts->where('advisory_level', 'red')->count(),
+            'weather_condition' => $dominantCondition,
+            'advisory_level' => $dominantLevel,
+            'advisory_badge' => $dominantBadge,
+            'advisory_message' => $dominantMessage,
+            'green_count' => $forecasts->where('advisory_level', 'green')->count(),
+            'yellow_count' => $forecasts->where('advisory_level', 'yellow')->count(),
+            'orange_count' => $forecasts->where('advisory_level', 'orange')->count(),
+            'red_count' => $forecasts->where('advisory_level', 'red')->count(),
         ];
 
         // 3. Real Active Pickup Locations
@@ -121,16 +120,16 @@ class HomeController extends Controller
         $upcomingToursCount = TourDate::where('tour_date', '>=', $today)->count();
 
         return Inertia::render('Welcome', [
-            'packages'         => $packages,
-            'pickupLocations'  => $pickupLocations,
+            'packages' => $packages,
+            'pickupLocations' => $pickupLocations,
             'marineConditions' => $marineConditions,
-            'stats'            => [
-                'total_bookings'   => $totalBookings,
-                'total_guests'     => $totalGuests,
-                'total_packages'   => $totalPackages,
-                'total_pickups'    => $totalPickupPoints,
-                'upcoming_tours'   => $upcomingToursCount,
-                'satisfaction_rate'=> '99.4%',
+            'stats' => [
+                'total_bookings' => $totalBookings,
+                'total_guests' => $totalGuests,
+                'total_packages' => $totalPackages,
+                'total_pickups' => $totalPickupPoints,
+                'upcoming_tours' => $upcomingToursCount,
+                'satisfaction_rate' => '99.4%',
             ],
         ]);
     }
