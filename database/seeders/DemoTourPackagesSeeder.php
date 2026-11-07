@@ -337,40 +337,98 @@ class DemoTourPackagesSeeder extends Seeder
     }
 
     /**
+     * Prefer existing shared/active hubs; otherwise create operator-owned hubs.
+     * Railway currently has no shared Siargao/Surigao hubs, so operator-owned
+     * records are created safely without touching other operators' pickups.
+     *
      * @return array<string, int>
      */
     private function ensurePickupLocations(int $operatorId): array
     {
         $map = [];
 
-        $shared = [
-            'general_luna_market' => 'General Luna Public Market Pier',
-            'general_luna_boulevard' => 'General Luna Tourism Boulevard',
-            'dapa_port' => 'Dapa Port Departure Hub',
-            'del_carmen' => 'Del Carmen Municipal Tourism Center',
-            'surigao_boulevard' => 'Surigao City Boulevard Wharf',
-        ];
-
-        foreach ($shared as $key => $name) {
-            $id = PickupLocation::withoutGlobalScopes()
-                ->where('name', $name)
+        foreach ($this->requiredPickupCatalog() as $key => $data) {
+            $sharedOrOwnedId = PickupLocation::withoutGlobalScopes()
+                ->where('name', $data['name'])
+                ->where('status', 'active')
                 ->where(function ($query) use ($operatorId): void {
                     $query->whereNull('tour_operator_id')
                         ->orWhere('tour_operator_id', $operatorId);
                 })
-                ->where('status', 'active')
                 ->value('id');
 
-            if ($id === null) {
-                throw new RuntimeException(
-                    "Required shared pickup [{$name}] is missing or inactive. Seed PickupLocationSeeder first or create it in Operations."
-                );
+            if ($sharedOrOwnedId !== null) {
+                $map[$key] = (int) $sharedOrOwnedId;
+                $this->command?->line("  pickup exists: {$data['name']} (#{$sharedOrOwnedId})");
+
+                continue;
             }
 
-            $map[$key] = (int) $id;
+            if ($this->dryRun) {
+                $map[$key] = 0;
+                $this->command?->line("  [dry-run] pickup would-create (operator-owned): {$data['name']}");
+
+                continue;
+            }
+
+            $location = new PickupLocation;
+            $location->tour_operator_id = $operatorId;
+            $location->name = $data['name'];
+            $location->address = $data['address'];
+            $location->latitude = $data['latitude'];
+            $location->longitude = $data['longitude'];
+            $location->description = $data['description'];
+            $location->status = 'active';
+            $location->save();
+
+            $map[$key] = (int) $location->id;
+            $this->command?->line("  pickup created: {$data['name']} (#{$location->id})");
         }
 
-        $operatorOwned = [
+        return $map;
+    }
+
+    /**
+     * @return array<string, array{name: string, address: string, latitude: string, longitude: string, description: string}>
+     */
+    private function requiredPickupCatalog(): array
+    {
+        return [
+            'general_luna_market' => [
+                'name' => 'General Luna Public Market Pier',
+                'address' => 'Public Market Wharf, General Luna, Siargao Island, Surigao del Norte',
+                'latitude' => '9.8032000',
+                'longitude' => '126.1601000',
+                'description' => 'Jump-off for General Luna island-hopping routes.',
+            ],
+            'general_luna_boulevard' => [
+                'name' => 'General Luna Tourism Boulevard',
+                'address' => 'Tourism Road, General Luna, Siargao Island, Surigao del Norte',
+                'latitude' => '9.8004000',
+                'longitude' => '126.1622000',
+                'description' => 'Central General Luna meeting point for boat tours.',
+            ],
+            'dapa_port' => [
+                'name' => 'Dapa Port Departure Hub',
+                'address' => 'Port Road, Dapa, Siargao Island, Surigao del Norte',
+                'latitude' => '9.7574000',
+                'longitude' => '126.0528000',
+                'description' => 'Dapa maritime hub for Mam-on, La Januza, and Corregidor routes.',
+            ],
+            'del_carmen' => [
+                'name' => 'Del Carmen Municipal Tourism Center',
+                'address' => 'Del Carmen Port Complex, Del Carmen, Siargao Island, Surigao del Norte',
+                'latitude' => '9.8688000',
+                'longitude' => '126.0264000',
+                'description' => 'Del Carmen port for Kawhagan and Pamomoan boat trips.',
+            ],
+            'surigao_boulevard' => [
+                'name' => 'Surigao City Boulevard Wharf',
+                'address' => 'Boulevard, Surigao City, Surigao del Norte',
+                'latitude' => '9.7858000',
+                'longitude' => '125.4942000',
+                'description' => 'City wharf for Basul, Hikdop, and Danawan departures.',
+            ],
             'san_benito' => [
                 'name' => 'San Benito Tourism Jump-off',
                 'address' => 'San Benito Tourism Office area, San Benito, Siargao Island, Surigao del Norte',
@@ -386,51 +444,6 @@ class DemoTourPackagesSeeder extends Seeder
                 'description' => 'Mainland jump-off for Sohoton Cove and Bucas Grande lagoon tours.',
             ],
         ];
-
-        foreach ($operatorOwned as $key => $data) {
-            if ($this->dryRun) {
-                $existingId = PickupLocation::withoutGlobalScopes()
-                    ->where('tour_operator_id', $operatorId)
-                    ->where('name', $data['name'])
-                    ->value('id');
-
-                $map[$key] = (int) ($existingId ?? 0);
-                $this->command?->line(
-                    '  [dry-run] pickup '.($existingId ? 'exists' : 'would-create').": {$data['name']}"
-                );
-
-                continue;
-            }
-
-            $location = PickupLocation::withoutGlobalScopes()
-                ->where('tour_operator_id', $operatorId)
-                ->where('name', $data['name'])
-                ->first();
-
-            if ($location === null) {
-                $location = new PickupLocation;
-                $location->tour_operator_id = $operatorId;
-                $location->name = $data['name'];
-                $location->address = $data['address'];
-                $location->latitude = $data['latitude'];
-                $location->longitude = $data['longitude'];
-                $location->description = $data['description'];
-                $location->status = 'active';
-                $location->save();
-            } else {
-                $location->fill([
-                    'address' => $data['address'],
-                    'latitude' => $data['latitude'],
-                    'longitude' => $data['longitude'],
-                    'description' => $data['description'],
-                    'status' => 'active',
-                ])->save();
-            }
-
-            $map[$key] = (int) $location->id;
-        }
-
-        return $map;
     }
 
     /**
