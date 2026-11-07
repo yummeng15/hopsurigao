@@ -1,4 +1,3 @@
-
 <script setup lang="ts">
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import { ArrowLeft, AlertTriangle, Save } from '@lucide/vue';
@@ -63,8 +62,8 @@ function submit(): void {
             </h1>
 
             <p class="text-sm text-slate-500 dark:text-slate-400">
-                Manage basic tour details here. Schedules, pickup times,
-                and images will be moved in a separate stage.
+                Enter your tour package details. After creating it, add a tour
+                schedule and publish it to accept reservations.
             </p>
         </header>
 
@@ -72,9 +71,10 @@ function submit(): void {
             v-if="!isEdit"
             class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200"
         >
-            New packages are saved as <strong>inactive</strong>
-            until tour schedules are configured and the package
-            is ready to publish.
+            Your package will first be saved as a <strong>draft</strong>. After
+            adding a future tour date, departure time, and pickup location,
+            select <strong>Publish Package</strong> from My Tour Packages so
+            tourists can book it.
         </div>
 
         <div
@@ -83,15 +83,15 @@ function submit(): void {
         >
             <AlertTriangle class="mt-0.5 size-5 shrink-0" />
             <p>
-                This package has pending or confirmed reservations.
-                Boat, destinations, and price cannot be changed
-                while those reservations remain active.
-                You can still update the package name and description.
+                This package has pending or confirmed reservations. Boat,
+                destinations, and price cannot be changed while those
+                reservations remain active. You can still update the package
+                name and description.
             </p>
         </div>
 
         <form
-            class="space-y-5 rounded-2xl border bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-7"
+            class="space-y-5 rounded-2xl border bg-white p-5 shadow-sm sm:p-7 dark:border-slate-800 dark:bg-slate-900"
             @submit.prevent="submit"
         >
             <div class="space-y-2">
@@ -134,7 +134,10 @@ function submit(): void {
             </div>
 
             <div class="space-y-2">
-                <label for="destinations_text" class="block text-sm font-semibold">
+                <label
+                    for="destinations_text"
+                    class="block text-sm font-semibold"
+                >
                     Destinations <span class="text-red-600">*</span>
                 </label>
 
@@ -153,7 +156,10 @@ function submit(): void {
                     Enter one destination per line (maximum 12).
                 </p>
 
-                <p v-if="form.errors.destinations_text" class="text-sm text-red-600">
+                <p
+                    v-if="form.errors.destinations_text"
+                    class="text-sm text-red-600"
+                >
                     {{ form.errors.destinations_text }}
                 </p>
             </div>
@@ -198,7 +204,9 @@ function submit(): void {
                 </p>
             </div>
 
-            <div class="flex flex-wrap items-center justify-end gap-3 border-t pt-5 dark:border-slate-700">
+            <div
+                class="flex flex-wrap items-center justify-end gap-3 border-t pt-5 dark:border-slate-700"
+            >
                 <Link
                     href="/operator/packages"
                     class="rounded-lg border px-4 py-2.5 text-sm font-medium hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800"
@@ -212,7 +220,13 @@ function submit(): void {
                     class="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                     <Save class="size-4" />
-                    {{ form.processing ? 'Saving...' : (isEdit ? 'Save changes' : 'Create inactive package') }}
+                    {{
+                        form.processing
+                            ? 'Saving...'
+                            : isEdit
+                              ? 'Save changes'
+                              : 'Create Package'
+                    }}
                 </button>
             </div>
         </form>

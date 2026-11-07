@@ -13,8 +13,13 @@ use Inertia\Inertia;
 use Inertia\Response;
 
 /**
- * Basic package information only: no tour dates, images, or booking deletion.
- * Ownership comes from the signed-in Admin, never from request data.
+ * Manage basic tour package information.
+ *
+ * New packages are saved as inactive internally.
+ * The UI displays this status as "Draft".
+ *
+ * A package can be published only after
+ * its required tour schedules are configured.
  */
 class OperatorPackageWriteController extends Controller
 {
@@ -32,9 +37,14 @@ class OperatorPackageWriteController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $operatorId = $this->operatorId($request);
+
         [$data, $destinations] = $this->validatedData($request);
 
-        DB::transaction(function () use ($operatorId, $data, $destinations): void {
+        DB::transaction(function () use (
+            $operatorId,
+            $data,
+            $destinations
+        ): void {
             $package = new Package();
 
             $package->fill([
@@ -43,11 +53,12 @@ class OperatorPackageWriteController extends Controller
                 'destination' => implode(', ', $destinations),
                 'description' => $data['description'] ?? null,
                 'price' => $data['price'],
-                // Never expose a new package before schedules are configured.
+
+                // Draft status until properly published.
                 'status' => 'inactive',
             ]);
 
-            // Deliberately not mass assigned: ownership is server-controlled.
+            // Ownership is controlled by the backend.
             $package->tour_operator_id = $operatorId;
             $package->save();
 
@@ -59,44 +70,73 @@ class OperatorPackageWriteController extends Controller
             }
         });
 
-        return redirect()->route('operator.packages.index')
-            ->with('success', 'Package saved as inactive. Add schedules before publishing.');
+        return redirect()
+            ->route('operator.packages.index')
+            ->with(
+                'success',
+                'Package created as a draft. Add schedules, then publish it when ready.'
+            );
     }
 
-    public function edit(Request $request, int $package): Response
-    {
+    public function edit(
+        Request $request,
+        int $package
+    ): Response {
         $operatorId = $this->operatorId($request);
-        $record = $this->ownedPackage($operatorId, $package);
+
+        $record = $this->ownedPackage(
+            $operatorId,
+            $package
+        );
 
         $record->load('destinations');
 
-        $destinations = $record->destinations->pluck('name')->all();
+        $destinations = $record->destinations
+            ->pluck('name')
+            ->all();
 
         if ($destinations === []) {
-            $destinations = $this->destinationNames((string) $record->destination);
+            $destinations = $this->destinationNames(
+                (string) $record->destination
+            );
         }
 
         return Inertia::render('operator/PackageForm', [
             'mode' => 'edit',
+
             'package' => [
                 'id' => $record->id,
                 'package_name' => $record->package_name,
                 'boat_name' => $record->boat_name,
-                'destinations_text' => implode("\n", $destinations),
+                'destinations_text' => implode(
+                    "\n",
+                    $destinations
+                ),
                 'description' => $record->description,
                 'price' => (string) $record->price,
                 'status' => $record->status,
             ],
-            'hasActiveBookings' => $this->hasActiveBookings($record),
+
+            'hasActiveBookings' => $this->hasActiveBookings(
+                $record
+            ),
         ]);
     }
 
-    public function update(Request $request, int $package): RedirectResponse
-    {
+    public function update(
+        Request $request,
+        int $package
+    ): RedirectResponse {
         $operatorId = $this->operatorId($request);
-        $record = $this->ownedPackage($operatorId, $package);
 
-        [$data, $destinations] = $this->validatedData($request);
+        $record = $this->ownedPackage(
+            $operatorId,
+            $package
+        );
+
+        [$data, $destinations] = $this->validatedData(
+            $request
+        );
 
         $oldDestinations = $record->destinations()
             ->orderBy('position')
@@ -104,14 +144,20 @@ class OperatorPackageWriteController extends Controller
             ->all();
 
         if ($oldDestinations === []) {
-            $oldDestinations = $this->destinationNames((string) $record->destination);
+            $oldDestinations = $this->destinationNames(
+                (string) $record->destination
+            );
         }
 
-        // Prevent changing booked tour essentials while reservations are active.
+        // Prevent changing booked tour essentials
+        // while reservations are active.
         if ($this->hasActiveBookings($record)) {
             $errors = [];
 
-            if (trim((string) $record->boat_name) !== trim($data['boat_name'])) {
+            if (
+                trim((string) $record->boat_name)
+                !== trim($data['boat_name'])
+            ) {
                 $errors['boat_name'] =
                     'The boat cannot be changed while active bookings exist.';
             }
@@ -130,20 +176,31 @@ class OperatorPackageWriteController extends Controller
             }
 
             if ($errors !== []) {
-                throw ValidationException::withMessages($errors);
+                throw ValidationException::withMessages(
+                    $errors
+                );
             }
         }
 
-        DB::transaction(function () use ($record, $data, $destinations, $oldDestinations): void {
+        DB::transaction(function () use (
+            $record,
+            $data,
+            $destinations,
+            $oldDestinations
+        ): void {
             $record->fill([
                 'package_name' => $data['package_name'],
                 'boat_name' => $data['boat_name'],
-                'destination' => implode(', ', $destinations),
+                'destination' => implode(
+                    ', ',
+                    $destinations
+                ),
                 'description' => $data['description'] ?? null,
                 'price' => $data['price'],
             ]);
 
-            // status and tour_operator_id deliberately stay unchanged.
+            // Preserve existing publication status
+            // and operator ownership.
             $record->save();
 
             if ($oldDestinations !== $destinations) {
@@ -158,7 +215,8 @@ class OperatorPackageWriteController extends Controller
             }
         });
 
-        return redirect()->route('operator.packages.index')
+        return redirect()
+            ->route('operator.packages.index')
             ->with(
                 'success',
                 'Package details updated. Existing schedules and images were preserved.'
@@ -169,34 +227,70 @@ class OperatorPackageWriteController extends Controller
     {
         $user = $request->user();
 
-        abort_unless($user?->role?->name === 'Admin', 403);
-        abort_unless($user->tourOperator?->is_active === true, 403);
+        abort_unless(
+            $user?->role?->name === 'Admin',
+            403
+        );
+
+        abort_unless(
+            $user->tourOperator?->is_active === true,
+            403
+        );
 
         return (int) $user->tour_operator_id;
     }
 
-    private function ownedPackage(int $operatorId, int $packageId): Package
-    {
-        // Query by server-resolved tenant ID. Foreign packages become 404.
+    private function ownedPackage(
+        int $operatorId,
+        int $packageId
+    ): Package {
         return Package::query()
             ->where('tour_operator_id', $operatorId)
             ->findOrFail($packageId);
     }
 
-    /** @return array{0: array<string, mixed>, 1: list<string>} */
+    /**
+     * @return array{0: array<string, mixed>, 1: list<string>}
+     */
     private function validatedData(Request $request): array
     {
         $data = $request->validate([
-            'package_name' => ['required', 'string', 'max:255'],
-            'boat_name' => ['required', 'string', 'max:255'],
-            'destinations_text' => ['required', 'string', 'max:2000'],
-            'description' => ['nullable', 'string', 'max:10000'],
-            'price' => ['required', 'numeric', 'min:0', 'max:99999999.99'],
+            'package_name' => [
+                'required',
+                'string',
+                'max:255',
+            ],
+            'boat_name' => [
+                'required',
+                'string',
+                'max:255',
+            ],
+            'destinations_text' => [
+                'required',
+                'string',
+                'max:2000',
+            ],
+            'description' => [
+                'nullable',
+                'string',
+                'max:10000',
+            ],
+            'price' => [
+                'required',
+                'numeric',
+                'min:0',
+                'max:99999999.99',
+            ],
         ]);
 
-        $destinations = $this->destinationNames($data['destinations_text']);
+        $destinations = $this->destinationNames(
+            $data['destinations_text']
+        );
 
-        if ($destinations === [] || count($destinations) > 12) {
+        if (
+            $destinations === [] ||
+            count($destinations) > 12
+        ) {
             throw ValidationException::withMessages([
                 'destinations_text' =>
                     'Enter between 1 and 12 destinations, one per line.',
@@ -212,7 +306,9 @@ class OperatorPackageWriteController extends Controller
             }
         }
 
-        if (mb_strlen(implode(', ', $destinations)) > 255) {
+        if (
+            mb_strlen(implode(', ', $destinations)) > 255
+        ) {
             throw ValidationException::withMessages([
                 'destinations_text' =>
                     'The combined destination names must be 255 characters or fewer.',
@@ -222,19 +318,29 @@ class OperatorPackageWriteController extends Controller
         return [$data, $destinations];
     }
 
-    /** @return list<string> */
+    /**
+     * @return list<string>
+     */
     private function destinationNames(string $text): array
     {
         $names = preg_split('/[\r\n,]+/u', $text) ?: [];
 
-        return PackageDestination::normalizeNames($names);
+        return PackageDestination::normalizeNames(
+            $names
+        );
     }
 
-    private function hasActiveBookings(Package $package): bool
-    {
+    private function hasActiveBookings(
+        Package $package
+    ): bool {
         return $package->tourDates()
-            ->whereHas('bookings', fn ($query) => $query
-                ->whereIn('booking_status', ['pending', 'confirmed']))
+            ->whereHas(
+                'bookings',
+                fn ($query) => $query->whereIn(
+                    'booking_status',
+                    ['pending', 'confirmed']
+                )
+            )
             ->exists();
     }
 }
