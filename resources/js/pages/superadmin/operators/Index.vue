@@ -93,23 +93,23 @@ defineOptions({
     <Head title="Tour Operators" />
 
     <div class="mx-auto max-w-7xl space-y-6 px-4 py-7 text-foreground sm:px-6 lg:px-8">
-        <div>
+            <div>
             <div class="mb-2 flex items-center gap-2 text-sm font-medium text-cyan-700 dark:text-cyan-300">
-                <Building2 class="h-4 w-4" />
-                Platform Management
+                    <Building2 class="h-4 w-4" />
+                    Platform Management
             </div>
             <h1 class="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">Tour Operators</h1>
             <p class="mt-2 text-sm text-foreground/70">Review registrations, then approve, reject, suspend, or reactivate a business.</p>
         </div>
 
         <form class="flex flex-col gap-3 rounded-3xl border border-border bg-card p-4 shadow-sm sm:flex-row" @submit.prevent="applyFilters">
-            <input
+                            <input
                 v-model="search"
                 type="search"
                 placeholder="Search business or email"
                 class="w-full rounded-xl border border-border bg-card px-4 py-2.5 text-sm text-foreground placeholder:text-foreground/50"
             />
-            <select
+                    <select
                 v-model="status"
                 class="rounded-xl border border-border bg-card px-4 py-2.5 text-sm text-foreground"
             >
@@ -118,7 +118,7 @@ defineOptions({
                 <option value="active">Active</option>
                 <option value="rejected">Rejected</option>
                 <option value="suspended">Suspended</option>
-            </select>
+                    </select>
             <button type="submit" class="rounded-xl bg-[#00FFFF] px-4 py-2.5 text-sm font-semibold text-cyan-950">Filter</button>
         </form>
 
@@ -163,7 +163,7 @@ defineOptions({
                                     <button v-if="operator.approval_status === 'pending'" type="button" class="rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-foreground" @click="rejectingId = operator.id">Reject</button>
                                     <button v-if="operator.approval_status === 'active'" type="button" class="rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-foreground" @click="decide(operator.id, 'suspend')">Suspend</button>
                                     <button v-if="operator.approval_status === 'suspended'" type="button" class="rounded-lg bg-[#00FFFF] px-3 py-1.5 text-xs font-semibold text-cyan-950" @click="decide(operator.id, 'reactivate')">Reactivate</button>
-                                </div>
+                </div>
                                 <form v-if="rejectingId === operator.id" class="mt-3 space-y-2" @submit.prevent="submitRejection(operator.id)">
                                     <textarea
                                         v-model="rejectForm.rejection_reason"
@@ -182,7 +182,7 @@ defineOptions({
                         </tr>
                     </tbody>
                 </table>
-            </div>
+                </div>
         </section>
 
         <section class="rounded-3xl border border-border bg-card p-5 shadow-sm">
@@ -196,7 +196,7 @@ defineOptions({
                 <div class="flex gap-2">
                     <button type="button" class="rounded-lg bg-[#00FFFF] px-3 py-1.5 text-xs font-semibold text-cyan-950" @click="reviewRequest(item.id, 'approve')">Approve</button>
                     <button type="button" class="rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-foreground" @click="reviewRequest(item.id, 'reject')">Reject</button>
-                </div>
+            </div>
             </div>
         </section>
 
