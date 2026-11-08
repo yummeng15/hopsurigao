@@ -259,67 +259,130 @@ class DemoTourPackagesSeeder extends Seeder
             throw new RuntimeException("Missing pickup location key [{$pickupKey}] for {$spec['package_name']}.");
         }
 
-        $createdOrEnsured = 0;
+        $neededDates = $this->scheduleDates($index);
+        $windowStart = $neededDates[0];
+        $windowEnd = $neededDates[array_key_last($neededDates)];
+        $now = now();
 
-        foreach ($this->scheduleDates($index) as $date) {
-            $tourDate = TourDate::withoutGlobalScopes()
-                ->where('package_id', $package->id)
-                ->whereDate('tour_date', $date)
-                ->first();
+        $existing = TourDate::withoutGlobalScopes()
+            ->where('package_id', $package->id)
+            ->whereDate('tour_date', '>=', $windowStart)
+            ->whereDate('tour_date', '<=', $windowEnd)
+            ->get(['id', 'tour_date', 'capacity', 'travel_closed'])
+            ->keyBy(fn (TourDate $tourDate): string => $tourDate->tour_date->toDateString());
 
-            if ($tourDate === null) {
-                $tourDate = TourDate::withoutGlobalScopes()->create([
-                    'package_id' => $package->id,
-                    'tour_date' => $date,
-                    'capacity' => $spec['capacity'],
-                    'travel_closed' => false,
-                ]);
-            } else {
-                $hasBookings = $tourDate->bookings()
-                    ->whereIn('booking_status', ['pending', 'confirmed'])
-                    ->exists();
+        $missingDateRows = [];
 
-                if (! $hasBookings) {
-                    $tourDate->capacity = $spec['capacity'];
-                    // Do not force travel_closed=false if already closed by weather/ops.
-                    $tourDate->save();
-                }
+        foreach ($neededDates as $date) {
+            if ($existing->has($date)) {
+                continue;
             }
 
-            $hasBookings = $tourDate->bookings()
-                ->whereIn('booking_status', ['pending', 'confirmed'])
-                ->exists();
-
-            if (! $hasBookings) {
-                $departureTime = $this->resolveDepartureTime(
-                    $package,
-                    $tourDate,
-                    (string) $spec['departure_time'],
-                    $index
-                );
-
-                $pickupTime = $this->resolvePickupTime(
-                    (string) $spec['pickup_time'],
-                    $departureTime
-                );
-
-                $tourDate->times()->delete();
-                $tourDate->times()->create([
-                    'time' => $departureTime,
-                    'description' => 'Departure',
-                ]);
-
-                $tourDate->pickupSchedules()->delete();
-                $tourDate->pickupSchedules()->create([
-                    'pickup_location_id' => $pickupId,
-                    'pickup_time' => $pickupTime,
-                ]);
-            }
-
-            $createdOrEnsured++;
+            $missingDateRows[] = [
+                'package_id' => $package->id,
+                'tour_date' => $date,
+                'capacity' => (int) $spec['capacity'],
+                'travel_closed' => false,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ];
         }
 
-        return $createdOrEnsured;
+        foreach (array_chunk($missingDateRows, 250) as $chunk) {
+            DB::table('tour_dates')->insert($chunk);
+        }
+
+        $tourDates = TourDate::withoutGlobalScopes()
+            ->where('package_id', $package->id)
+            ->whereDate('tour_date', '>=', $windowStart)
+            ->whereDate('tour_date', '<=', $windowEnd)
+            ->get(['id', 'tour_date', 'capacity']);
+
+        $tourDateIds = $tourDates->pluck('id')->all();
+
+        $bookedIds = DB::table('bookings')
+            ->whereIn('tour_date_id', $tourDateIds)
+            ->whereIn('booking_status', ['pending', 'confirmed'])
+            ->distinct()
+            ->pluck('tour_date_id')
+            ->all();
+        $bookedLookup = array_fill_keys($bookedIds, true);
+
+        $datesWithTimes = DB::table('times')
+            ->whereIn('tour_date_id', $tourDateIds)
+            ->distinct()
+            ->pluck('tour_date_id')
+            ->all();
+        $timesLookup = array_fill_keys($datesWithTimes, true);
+
+        $datesWithPickups = DB::table('pickup_schedules')
+            ->whereIn('tour_date_id', $tourDateIds)
+            ->distinct()
+            ->pluck('tour_date_id')
+            ->all();
+        $pickupsLookup = array_fill_keys($datesWithPickups, true);
+
+        $departureTime = $this->staggeredDepartureTime(
+            (string) $spec['departure_time'],
+            $index
+        );
+        $pickupTime = $this->resolvePickupTime(
+            (string) $spec['pickup_time'],
+            $departureTime
+        );
+
+        $capacityUpdates = [];
+        $timeRows = [];
+        $pickupRows = [];
+
+        foreach ($tourDates as $tourDate) {
+            if (isset($bookedLookup[$tourDate->id])) {
+                continue;
+            }
+
+            if ((int) $tourDate->capacity !== (int) $spec['capacity']) {
+                $capacityUpdates[] = $tourDate->id;
+            }
+
+            if (! isset($timesLookup[$tourDate->id])) {
+                $timeRows[] = [
+                    'tour_date_id' => $tourDate->id,
+                    'time' => $departureTime,
+                    'description' => 'Departure',
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ];
+            }
+
+            if (! isset($pickupsLookup[$tourDate->id])) {
+                $pickupRows[] = [
+                    'tour_date_id' => $tourDate->id,
+                    'pickup_location_id' => $pickupId,
+                    'pickup_time' => $pickupTime,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ];
+            }
+        }
+
+        if ($capacityUpdates !== []) {
+            TourDate::withoutGlobalScopes()
+                ->whereIn('id', $capacityUpdates)
+                ->update([
+                    'capacity' => (int) $spec['capacity'],
+                    'updated_at' => $now,
+                ]);
+        }
+
+        foreach (array_chunk($timeRows, 250) as $chunk) {
+            DB::table('times')->insert($chunk);
+        }
+
+        foreach (array_chunk($pickupRows, 250) as $chunk) {
+            DB::table('pickup_schedules')->insert($chunk);
+        }
+
+        return $tourDates->count();
     }
 
     /**
@@ -343,43 +406,15 @@ class DemoTourPackagesSeeder extends Seeder
     }
 
     /**
-     * Keep the same boat from departing twice at the same clock time.
-     * Demo packages use distinct boats; this still guards collisions safely.
+     * Stagger demo departures by package index.
+     * Demo catalog boats are unique, so per-date DB conflict scans are unnecessary.
      */
-    private function resolveDepartureTime(
-        Package $package,
-        TourDate $tourDate,
-        string $desiredTime,
-        int $index
-    ): string {
+    private function staggeredDepartureTime(string $desiredTime, int $index): string
+    {
         $candidate = Carbon::createFromFormat('H:i', substr($desiredTime, 0, 5))
             ?: Carbon::createFromTime(8, 0);
 
-        // Light per-package stagger reduces same-minute pier congestion.
         $candidate->addMinutes(($index % 4) * 15);
-
-        for ($attempt = 0; $attempt < 16; $attempt++) {
-            $time = $candidate->format('H:i');
-
-            $conflict = TourDate::withoutGlobalScopes()
-                ->where('id', '!=', $tourDate->id)
-                ->whereDate('tour_date', $tourDate->tour_date->toDateString())
-                ->whereHas('package', function ($query) use ($package): void {
-                    $query->withoutGlobalScopes()
-                        ->where('boat_name', $package->boat_name)
-                        ->where('id', '!=', $package->id);
-                })
-                ->whereHas('times', function ($query) use ($time): void {
-                    $query->whereTime('time', $time);
-                })
-                ->exists();
-
-            if (! $conflict) {
-                return $time;
-            }
-
-            $candidate->addMinutes(15);
-        }
 
         return $candidate->format('H:i');
     }
