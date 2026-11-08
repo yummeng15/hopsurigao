@@ -15,7 +15,7 @@ const className = computed(() => props.class);
 </script>
 
 <template>
-    <SidebarInset v-if="props.variant === 'sidebar'" class="h-screen overflow-y-auto" :class="className">
+    <SidebarInset v-if="props.variant === 'sidebar'" class="h-dvh overflow-x-hidden overflow-y-auto overscroll-y-contain" :class="className">
         <slot />
     </SidebarInset>
     <main

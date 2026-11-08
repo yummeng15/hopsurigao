@@ -126,7 +126,7 @@ watch(
 <template>
     <Dialog :open="open" @update:open="(value) => emit('update:open', value)">
         <DialogContent
-            class="max-h-[92vh] overflow-y-auto rounded-3xl border bg-card/95 p-6 backdrop-blur-md sm:max-w-4xl sm:p-8"
+            class="max-h-[min(92dvh,92vh)] overflow-y-auto rounded-3xl border bg-card/95 p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))] backdrop-blur-md sm:max-w-4xl sm:p-8"
         >
             <!-- Ambient Glow for Dialog -->
             <div class="pointer-events-none absolute -right-16 -top-16 -z-10 h-48 w-48 rounded-full bg-primary/10 blur-3xl" />

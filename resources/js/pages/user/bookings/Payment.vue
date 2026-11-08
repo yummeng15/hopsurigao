@@ -18,6 +18,7 @@ import {
 
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
+import MobileStickyActionBar from '@/components/MobileStickyActionBar.vue';
 
 type Package = {
     id: number;
@@ -288,7 +289,7 @@ defineOptions({
     />
 
     <div
-        class="relative min-h-screen overflow-x-clip bg-background pb-32 text-foreground md:pb-20"
+        class="tourist-page tourist-page--with-sticky"
     >
         <div
             class="pointer-events-none absolute inset-0 -z-10 overflow-hidden"
@@ -723,10 +724,7 @@ defineOptions({
         </div>
 
         <!-- Mobile payment button -->
-        <div
-            class="fixed inset-x-0 z-30 border-t border-border bg-background/95 px-4 py-3 backdrop-blur-md md:hidden "
-            style="bottom: calc(4.75rem + env(safe-area-inset-bottom))"
-        >
+        <MobileStickyActionBar>
             <Button
                 type="button"
                 class="w-full rounded-2xl"
@@ -743,6 +741,6 @@ defineOptions({
                     Pay ₱{{ formatPrice(amountDue()) }} with GCash
                 </span>
             </Button>
-        </div>
+        </MobileStickyActionBar>
     </div>
 </template>

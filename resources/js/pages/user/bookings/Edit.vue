@@ -149,7 +149,8 @@ defineOptions({
 <template>
     <Head :title="`Edit Booking #${booking.id}`" />
 
-    <div class="mx-auto max-w-4xl space-y-6 px-4 py-6 pb-20 md:px-8">
+    <div class="tourist-page">
+    <div class="mx-auto max-w-4xl space-y-6 px-4 py-6 md:px-8">
         <div>
             <Link :href="show(booking.id)" class="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
                 <ArrowLeft class="h-4 w-4" /> Back to Booking Details
@@ -288,5 +289,6 @@ defineOptions({
                 </Button>
             </div>
         </form>
+    </div>
     </div>
 </template>

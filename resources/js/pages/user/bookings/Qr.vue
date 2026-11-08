@@ -189,7 +189,7 @@ defineOptions({
 
     <Head :title="`Booking #${booking.id} QR Code`" />
 
-    <div class="relative min-h-screen overflow-x-clip bg-background pb-20 text-foreground">
+    <div class="tourist-page">
         <!-- Ambient Background Glows -->
         <div class="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
             <div

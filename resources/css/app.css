@@ -6,3 +6,70 @@
 @import './themes/theme6.css';
 @import './themes/theme7.css';
 @import './themes/theme8.css';
+
+/*
+|--------------------------------------------------------------------------
+| Mobile chrome spacing (Tourist APK / Android WebView)
+|--------------------------------------------------------------------------
+| Bottom nav, sticky action bars, and safe-area insets share one source of
+| truth so page content is never trapped under fixed UI.
+*/
+@layer base {
+    :root {
+        --mobile-bottom-nav-height: 4.75rem;
+        --mobile-sticky-action-height: 8rem;
+        --mobile-nav-clearance: calc(
+            var(--mobile-bottom-nav-height) + env(safe-area-inset-bottom, 0px)
+        );
+        --mobile-content-pad-bottom: calc(var(--mobile-nav-clearance) + 0.75rem);
+        --mobile-content-pad-with-sticky: calc(
+            var(--mobile-nav-clearance) + var(--mobile-sticky-action-height)
+        );
+    }
+
+    @media (max-width: 767px) {
+        input,
+        textarea,
+        select,
+        button,
+        [role='button'] {
+            scroll-margin-bottom: var(--mobile-content-pad-with-sticky);
+        }
+    }
+}
+
+@layer utilities {
+    .pb-mobile-nav {
+        padding-bottom: var(--mobile-content-pad-bottom);
+    }
+
+    .tourist-page {
+        position: relative;
+        box-sizing: border-box;
+        width: 100%;
+        min-height: 100dvh;
+        height: auto;
+        /* Prevent the sidebar flex column from collapsing the page to the
+           viewport height while taller content overflows past bottom padding. */
+        flex-shrink: 0;
+        background-color: var(--background);
+        color: var(--foreground);
+        padding-bottom: 1rem;
+    }
+
+    @media (min-width: 768px) {
+        .tourist-page {
+            padding-bottom: 5rem;
+        }
+    }
+
+    .tourist-page--with-sticky {
+        padding-bottom: var(--mobile-sticky-action-height);
+    }
+
+    @media (min-width: 768px) {
+        .tourist-page--with-sticky {
+            padding-bottom: 5rem;
+        }
+    }
+}

@@ -32,6 +32,7 @@ import { Button } from '@/components/ui/button';
 import WeatherAdvisoryCard, { type WeatherForecastData } from '@/components/weather/WeatherAdvisoryCard.vue';
 import PickupMap from '@/components/maps/PickupMap.vue';
 import TourRoute from '@/components/tours/TourRoute.vue';
+import MobileStickyActionBar from '@/components/MobileStickyActionBar.vue';
 
 /*
 |--------------------------------------------------------------------------
@@ -207,7 +208,7 @@ defineOptions({
 <template>
     <Head title="Book Tour" />
 
-    <div class="relative min-h-screen overflow-x-clip bg-background pb-32 text-foreground md:pb-20">
+    <div class="tourist-page tourist-page--with-sticky">
         <!-- Ambient Background Glows -->
         <div class="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
             <div class="absolute left-1/2 top-[-10rem] h-[28rem] w-[42rem] -translate-x-1/2 rounded-full bg-primary/10 blur-3xl" />
@@ -625,10 +626,7 @@ defineOptions({
         </div>
 
         <!-- Mobile confirm bar above bottom tabs -->
-        <div
-            class="fixed inset-x-0 z-30 border-t border-border bg-background/95 px-4 py-3 backdrop-blur-md md:hidden "
-            style="bottom: calc(4.75rem + env(safe-area-inset-bottom))"
-        >
+        <MobileStickyActionBar tall>
             <div class="mb-2 flex items-center justify-between text-xs">
                 <span class="text-muted-foreground">Estimated total</span>
                 <span class="font-bold text-foreground">
@@ -647,6 +645,6 @@ defineOptions({
             >
                 {{ form.processing ? 'Saving...' : 'Confirm & proceed to pay' }}
             </Button>
-        </div>
+        </MobileStickyActionBar>
     </div>
 </template>

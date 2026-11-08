@@ -23,7 +23,7 @@ withDefaults(defineProps<Props>(), {
         <AppContent variant="sidebar" class="relative overflow-x-hidden bg-transparent!">
             <SeaBackground />
             <div
-                class="relative z-10 flex min-h-full flex-1 flex-col pb-[calc(5.5rem+env(safe-area-inset-bottom))] md:pb-0 [&>.bg-background]:bg-transparent"
+                class="relative z-10 flex min-h-full w-full shrink-0 flex-col pb-mobile-nav md:pb-0 [&>.bg-background]:bg-transparent [&>*:not(header)]:shrink-0"
             >
                 <AppSidebarHeader :breadcrumbs="breadcrumbs" />
                 <slot />

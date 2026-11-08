@@ -93,7 +93,7 @@ function cancelNotifications(): void {
 <template>
     <Head title="Settings" />
 
-    <main class="mx-auto w-full max-w-lg space-y-8 px-4 py-5">
+    <main class="tourist-page mx-auto w-full max-w-lg space-y-8 px-4 py-5">
         <header class="space-y-1">
             <h1 class="text-2xl font-bold tracking-tight">Settings</h1>
             <p class="text-sm text-foreground/70">Update your tourist account.</p>

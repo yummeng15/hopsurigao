@@ -450,9 +450,7 @@ defineOptions({
 <template>
     <Head title="My Bookings" />
 
-    <div
-        class="relative min-h-screen overflow-x-clip bg-background pb-8 text-foreground md:pb-20"
-    >
+    <div class="tourist-page">
         <div
             class="pointer-events-none absolute inset-0 -z-10 overflow-hidden"
         >

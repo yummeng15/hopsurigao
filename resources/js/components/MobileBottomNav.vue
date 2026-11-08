@@ -72,8 +72,9 @@ const handleLogout = () => {
     <nav
         v-if="tabs.length > 0"
         class="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 backdrop-blur-md md:hidden"
-        style="padding-bottom: env(safe-area-inset-bottom)"
+        style="padding-bottom: env(safe-area-inset-bottom, 0px)"
         aria-label="Mobile primary navigation"
+        data-mobile-bottom-nav
     >
         <ul class="mx-auto grid max-w-lg grid-flow-col auto-cols-fr px-1 pt-1.5 pb-1">
             <li v-for="tab in tabs" :key="tab.tabTitle" class="min-w-0">
@@ -134,7 +135,7 @@ const handleLogout = () => {
     <Sheet v-model:open="moreOpen">
         <SheetContent
             side="bottom"
-            class="max-h-[80vh] rounded-t-3xl border-border bg-background px-0 pb-8"
+            class="max-h-[min(80vh,100dvh)] rounded-t-3xl border-border bg-background px-0 pb-[calc(2rem+env(safe-area-inset-bottom,0px))]"
         >
             <SheetHeader class="border-b border-border px-5 pb-3 text-left">
                 <SheetTitle>More</SheetTitle>

@@ -400,7 +400,7 @@ defineOptions({
 <template>
     <Head title="Booking History" />
 
-    <div class="min-h-screen bg-background pb-12 text-foreground">
+    <div class="tourist-page">
         <div class="mx-auto max-w-7xl px-4 py-6 lg:px-8">
             <!-- Page heading -->
             <div class="mb-6 flex flex-wrap items-center justify-between gap-4">

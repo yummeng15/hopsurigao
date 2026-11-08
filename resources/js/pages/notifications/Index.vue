@@ -179,7 +179,7 @@ async function clearAllRead(): Promise<void> {
 <template>
     <Head title="Notifications & Alerts" />
 
-    <div class="mx-auto max-w-6xl space-y-6 px-4 py-6 sm:px-6 lg:px-8">
+    <div class="tourist-page mx-auto max-w-6xl space-y-6 px-4 py-6 sm:px-6 lg:px-8">
             <!-- Header Card -->
             <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>

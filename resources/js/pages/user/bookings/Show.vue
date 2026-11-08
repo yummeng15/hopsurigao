@@ -456,7 +456,7 @@ defineOptions({
 <template>
   <Head :title="`Booking #${booking.id}`" />
 
-  <div class="relative min-h-screen overflow-x-clip bg-background pb-20 text-foreground">
+  <div class="tourist-page">
     <div class="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
       <div class="absolute left-1/2 top-[-10rem] h-[28rem] w-[42rem] -translate-x-1/2 rounded-full bg-primary/10 blur-3xl" />
       <div class="absolute right-[-10rem] top-64 h-72 w-72 rounded-full bg-primary/5 blur-3xl" />

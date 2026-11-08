@@ -129,7 +129,7 @@ function formatPrice(price: number | string): string {
 <template>
     <Head title="Tour Packages" />
 
-    <div class="relative min-h-screen overflow-x-clip bg-background pb-8 text-foreground md:pb-20">
+    <div class="tourist-page">
         <!-- Ambient Background Glows -->
         <div class="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
             <div class="absolute left-1/2 top-[-10rem] h-[28rem] w-[42rem] -translate-x-1/2 rounded-full bg-primary/10 blur-3xl" />

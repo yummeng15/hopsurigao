@@ -61,6 +61,7 @@ function formatDate(date: string | null): string {
 <template>
     <Head title="Tour feedback" />
 
+    <div class="tourist-page">
     <div class="mx-auto max-w-3xl space-y-6 px-5 py-8 lg:px-8">
         <div class="flex items-start gap-3">
             <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
@@ -164,5 +165,6 @@ function formatDate(date: string | null): string {
                 Refresh this list
             </Link>
         </p>
+    </div>
     </div>
 </template>

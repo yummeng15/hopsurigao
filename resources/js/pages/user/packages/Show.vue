@@ -45,6 +45,7 @@ import PickupMap from '@/components/maps/PickupMap.vue';
 import WeatherAdvisoryBadge from '@/components/weather/WeatherAdvisoryBadge.vue';
 import { type WeatherForecastData } from '@/components/weather/WeatherAdvisoryCard.vue';
 import PackagePhotoPlaceholder from '@/components/packages/PackagePhotoPlaceholder.vue';
+import MobileStickyActionBar from '@/components/MobileStickyActionBar.vue';
 
 /*
 |--------------------------------------------------------------------------
@@ -438,7 +439,7 @@ function formatPrice(price: number | string): string {
 <template>
     <Head :title="package.package_name" />
 
-    <div class="relative min-h-screen overflow-x-clip bg-background pb-32 text-foreground md:pb-20">
+    <div class="tourist-page tourist-page--with-sticky">
         <!-- Decorative Ambient Background -->
         <div class="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
             <div class="absolute left-1/2 top-[-10rem] h-[28rem] w-[42rem] -translate-x-1/2 rounded-full bg-primary/10 blur-3xl" />
@@ -1033,10 +1034,7 @@ function formatPrice(price: number | string): string {
         </div>
 
         <!-- Mobile book bar above bottom tabs -->
-        <div
-            class="fixed inset-x-0 z-30 border-t border-border bg-background/95 px-4 py-3 backdrop-blur-md md:hidden "
-            style="bottom: calc(4.75rem + env(safe-area-inset-bottom))"
-        >
+        <MobileStickyActionBar tall>
             <div class="mb-2 flex items-center justify-between gap-3 text-xs">
                 <div class="min-w-0">
                     <p class="text-muted-foreground">
@@ -1068,6 +1066,6 @@ function formatPrice(price: number | string): string {
             >
                 {{ stickyCtaLabel }}
             </Button>
-        </div>
+        </MobileStickyActionBar>
     </div>
 </template>
