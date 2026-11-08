@@ -23,6 +23,8 @@ class TourDateBookingAvailability
 
     public const STATUS_OPERATOR_UNAVAILABLE = 'operator_unavailable';
 
+    public const STATUS_NO_SCHEDULE = 'no_schedule';
+
     public function __construct(
         private WeatherAdvisoryService $weather,
     ) {}
@@ -46,6 +48,7 @@ class TourDateBookingAvailability
         int $bookedGuests,
         ?string $advisoryLevel,
         bool $hasForecastRow = true,
+        ?bool $hasCompleteSchedule = null,
     ): array {
         $remaining = max(0, (int) $tourDate->capacity - $bookedGuests);
         $isFull = $remaining <= 0;
@@ -53,6 +56,24 @@ class TourDateBookingAvailability
 
         if (! $hasForecastRow || $advisoryLevel === null || $advisoryLevel === '' || $advisoryLevel === 'unavailable') {
             $forecastNotice = 'Weather forecast is not yet available for this date. Conditions are not marked safe or unsafe until Open-Meteo data is received.';
+        }
+
+        if ($hasCompleteSchedule === null) {
+            $tourDate->loadMissing(['times', 'pickupSchedules']);
+            $hasCompleteSchedule = $tourDate->times->isNotEmpty()
+                && $tourDate->pickupSchedules->isNotEmpty();
+        }
+
+        if (! $hasCompleteSchedule) {
+            return $this->result(
+                status: self::STATUS_NO_SCHEDULE,
+                label: 'No Schedule Available',
+                reason: 'No Schedule Available: This tour has no departure scheduled for this date. Please choose another available date.',
+                bookable: false,
+                remaining: $remaining,
+                isFull: $isFull,
+                forecastNotice: $forecastNotice,
+            );
         }
 
         if ((bool) $package->under_maintenance) {

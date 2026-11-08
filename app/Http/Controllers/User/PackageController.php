@@ -127,12 +127,16 @@ class PackageController extends Controller
                     ->sum('number_of_guests');
 
                 $forecast = $tourDate->weatherForecast;
+                $hasCompleteSchedule = $tourDate->times->isNotEmpty()
+                    && $tourDate->pickupSchedules->isNotEmpty();
+
                 $availability = $this->bookingAvailability->assess(
                     $package,
                     $tourDate,
                     $bookedGuests,
                     $forecast?->advisory_level,
                     $forecast !== null,
+                    $hasCompleteSchedule,
                 );
 
                 return [
@@ -163,6 +167,8 @@ class PackageController extends Controller
                     'booking_closed_reason' => $availability['booking_closed_reason'],
 
                     'bookable' => $availability['bookable'],
+
+                    'has_complete_schedule' => $hasCompleteSchedule,
 
                     'weather_forecast' => $forecast,
 

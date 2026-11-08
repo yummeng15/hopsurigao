@@ -106,6 +106,7 @@ type TourDate = {
     booking_closed?: boolean;
     booking_closed_reason?: string | null;
     bookable?: boolean;
+    has_complete_schedule?: boolean;
     times: TourTime[];
     pickup_schedules: PickupSchedule[];
     weather_forecast?: WeatherForecastData | null;
@@ -174,17 +175,35 @@ function selectPickup(tourDateId: number, pickupId: number): void {
 const calendarMarkers = computed<Record<string, CalendarMarker>>(() => {
     return Object.fromEntries(
         props.package.tour_dates.map((tourDate) => {
+            const key = tourDate.tour_date.slice(0, 10);
+            const hasSchedule = tourDate.has_complete_schedule !== false
+                && (tourDate.times?.length ?? 0) > 0
+                && (tourDate.pickup_schedules?.length ?? 0) > 0;
+
+            // Never paint Seats Open without a valid departure + pickup schedule.
+            if (! hasSchedule || tourDate.availability_status === 'no_schedule') {
+                return [key, { tone: 'none' as const }];
+            }
+
             let tone: CalendarMarker['tone'] = 'available';
 
-            if (tourDate.is_full) {
+            if (tourDate.availability_status === 'fully_booked' || tourDate.is_full) {
                 tone = 'full';
-            } else if (tourDate.booking_closed || tourDate.bookable === false) {
+            } else if (tourDate.availability_status === 'under_maintenance') {
+                tone = 'maintenance';
+            } else if (
+                tourDate.availability_status === 'travel_closed_weather'
+                || tourDate.availability_status === 'travel_closed_manual'
+                || tourDate.availability_status === 'operator_unavailable'
+                || tourDate.booking_closed
+                || tourDate.bookable === false
+            ) {
                 tone = 'closed';
             } else if (tourDate.remaining_capacity <= 5) {
                 tone = 'limited';
             }
 
-            return [tourDate.tour_date.slice(0, 10), { tone }];
+            return [key, { tone }];
         }),
     );
 });
@@ -252,6 +271,14 @@ const canBookSelected = computed(() => {
     const tourDate = selectedTourDate.value;
 
     if (! tourDate) {
+        return false;
+    }
+
+    const hasSchedule = tourDate.has_complete_schedule !== false
+        && (tourDate.times?.length ?? 0) > 0
+        && (tourDate.pickup_schedules?.length ?? 0) > 0;
+
+    if (! hasSchedule) {
         return false;
     }
 
@@ -722,7 +749,15 @@ function formatPrice(price: number | string): string {
                                 </span>
                                 <span class="inline-flex items-center gap-1.5">
                                     <span class="h-2.5 w-2.5 rounded-full bg-slate-500" />
-                                    Travel closed
+                                    Travel / manually closed
+                                </span>
+                                <span class="inline-flex items-center gap-1.5">
+                                    <span class="h-2.5 w-2.5 rounded-full bg-violet-500" />
+                                    Under maintenance
+                                </span>
+                                <span class="inline-flex items-center gap-1.5">
+                                    <span class="h-2.5 w-2.5 rounded-full bg-amber-500" />
+                                    No schedule
                                 </span>
                             </div>
 

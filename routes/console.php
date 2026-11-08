@@ -32,3 +32,17 @@ if ($demoOperatorId > 0) {
         ->withoutOverlapping()
         ->runInBackground();
 }
+
+/*
+|--------------------------------------------------------------------------
+| Rolling daily schedules for all eligible published packages
+|--------------------------------------------------------------------------
+|
+| Idempotent: adds missing package_id + tour_date rows with cloned
+| departure times and pickups. Does not rewrite booked dates.
+|
+*/
+Schedule::command('tours:ensure-rolling-schedules --days=365')
+    ->weeklyOn(1, '02:45')
+    ->withoutOverlapping()
+    ->runInBackground();

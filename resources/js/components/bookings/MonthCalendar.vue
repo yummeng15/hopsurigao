@@ -2,7 +2,14 @@
 import { computed, ref, watch } from 'vue';
 import { ChevronLeft, ChevronRight } from '@lucide/vue';
 
-export type CalendarTone = 'available' | 'limited' | 'full' | 'booked' | 'closed';
+export type CalendarTone =
+    | 'available'
+    | 'limited'
+    | 'full'
+    | 'booked'
+    | 'closed'
+    | 'maintenance'
+    | 'none';
 
 export type CalendarMarker = {
     tone: CalendarTone;
@@ -123,16 +130,45 @@ function canSelect(marker: CalendarMarker | null): boolean {
 }
 
 function cellClass(key: string, marker: CalendarMarker | null): string {
+    // Empty / no-schedule selection must never reuse the Seats Open primary fill.
     if (props.selected === key) {
-        return 'bg-primary text-primary-foreground shadow-xs';
+        if (! marker || marker.tone === 'none') {
+            return 'bg-amber-500/15 font-semibold text-amber-900 ring-1 ring-amber-500/40 dark:text-amber-200';
+        }
+
+        if (marker.tone === 'available' || marker.tone === 'booked') {
+            return 'bg-primary text-primary-foreground shadow-xs';
+        }
+
+        if (marker.tone === 'limited') {
+            return 'bg-orange-500 text-white shadow-xs';
+        }
+
+        if (marker.tone === 'full') {
+            return 'bg-destructive text-white shadow-xs';
+        }
+
+        if (marker.tone === 'maintenance') {
+            return 'bg-violet-600 text-white shadow-xs';
+        }
+
+        return 'bg-slate-600 text-white shadow-xs';
     }
 
     if (marker?.tone === 'full') {
         return 'bg-destructive/15 font-semibold text-destructive';
     }
 
+    if (marker?.tone === 'maintenance') {
+        return 'bg-violet-500/15 font-semibold text-violet-700 dark:text-violet-300';
+    }
+
     if (marker?.tone === 'closed') {
         return 'bg-slate-500/15 font-semibold text-slate-700 dark:text-slate-300';
+    }
+
+    if (marker?.tone === 'none') {
+        return 'bg-amber-500/10 font-semibold text-amber-800 dark:text-amber-200';
     }
 
     if (marker?.tone === 'limited') {

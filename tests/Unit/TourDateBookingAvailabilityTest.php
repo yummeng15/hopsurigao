@@ -55,6 +55,7 @@ it('explains unfavorable weather as travel closed', function (): void {
         bookedGuests: 0,
         advisoryLevel: 'orange',
         hasForecastRow: true,
+        hasCompleteSchedule: true,
     );
 
     expect($result['status'])->toBe(TourDateBookingAvailability::STATUS_TRAVEL_CLOSED_WEATHER)
@@ -70,6 +71,7 @@ it('explains operator manual closure separately from weather', function (): void
         bookedGuests: 0,
         advisoryLevel: 'green',
         hasForecastRow: true,
+        hasCompleteSchedule: true,
     );
 
     expect($result['status'])->toBe(TourDateBookingAvailability::STATUS_TRAVEL_CLOSED_MANUAL)
@@ -84,6 +86,7 @@ it('explains fully booked and maintenance reasons', function (): void {
         bookedGuests: 10,
         advisoryLevel: 'green',
         hasForecastRow: true,
+        hasCompleteSchedule: true,
     );
 
     expect($full['status'])->toBe(TourDateBookingAvailability::STATUS_FULLY_BOOKED)
@@ -95,6 +98,7 @@ it('explains fully booked and maintenance reasons', function (): void {
         bookedGuests: 0,
         advisoryLevel: 'green',
         hasForecastRow: true,
+        hasCompleteSchedule: true,
     );
 
     expect($maintenance['status'])->toBe(TourDateBookingAvailability::STATUS_UNDER_MAINTENANCE)
@@ -108,10 +112,27 @@ it('keeps dates bookable when forecast data is unavailable and shows a notice', 
         bookedGuests: 2,
         advisoryLevel: null,
         hasForecastRow: false,
+        hasCompleteSchedule: true,
     );
 
     expect($result['bookable'])->toBeTrue()
         ->and($result['status'])->toBe(TourDateBookingAvailability::STATUS_AVAILABLE)
         ->and($result['forecast_notice'])->toContain('not yet available')
         ->and($result['remaining_capacity'])->toBe(58);
+});
+
+it('never marks incomplete schedules as seats open', function (): void {
+    $result = availabilityService()->assess(
+        availabilityPackage(),
+        availabilityTourDate(),
+        bookedGuests: 0,
+        advisoryLevel: 'green',
+        hasForecastRow: true,
+        hasCompleteSchedule: false,
+    );
+
+    expect($result['bookable'])->toBeFalse()
+        ->and($result['status'])->toBe(TourDateBookingAvailability::STATUS_NO_SCHEDULE)
+        ->and($result['label'])->toBe('No Schedule Available')
+        ->and($result['reason'])->toContain('no departure scheduled');
 });
