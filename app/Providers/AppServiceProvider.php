@@ -47,7 +47,8 @@ class AppServiceProvider extends ServiceProvider
      */
     protected function assignLicensedDemoCoversOnce(): void
     {
-        if (env('ASSIGN_LICENSED_COVERS_ONCE') !== '1') {
+        // Use getenv — env() is null after config:cache on Railway.
+        if (getenv('ASSIGN_LICENSED_COVERS_ONCE') !== '1') {
             return;
         }
 
@@ -62,8 +63,9 @@ class AppServiceProvider extends ServiceProvider
         }
 
         try {
+            $operatorId = (int) (getenv('DEMO_TOUR_OPERATOR_ID') ?: 1);
             Artisan::call('demo:assign-licensed-covers', [
-                '--operator' => (int) env('DEMO_TOUR_OPERATOR_ID', 1),
+                '--operator' => $operatorId,
             ]);
             file_put_contents(
                 $flag,
