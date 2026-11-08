@@ -6,9 +6,30 @@ use App\Http\Controllers\HomeController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\PayMongoWebhookController;
 use App\Http\Middleware\ProtectLegacyAdminRoutes;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', HomeController::class)->name('home');
+
+// Temporary one-shot (gated by Railway env). Remove after covers are assigned.
+Route::get('/__assign-licensed-covers', function () {
+    abort_unless(getenv('ASSIGN_LICENSED_COVERS_ONCE') === '1', 404);
+
+    $operatorId = (int) (getenv('DEMO_TOUR_OPERATOR_ID') ?: 1);
+    $exit = Artisan::call('demo:assign-licensed-covers', [
+        '--operator' => $operatorId,
+        '--force' => true,
+    ]);
+
+    $flag = storage_path('app/licensed-covers-assigned.flag');
+    file_put_contents($flag, now()->toIso8601String()."\n".Artisan::output());
+
+    return response(
+        "exit={$exit}\noperator={$operatorId}\n\n".Artisan::output(),
+        200,
+        ['Content-Type' => 'text/plain; charset=UTF-8']
+    );
+});
 
 
 Route::view('/privacy-policy', 'privacy-policy')
