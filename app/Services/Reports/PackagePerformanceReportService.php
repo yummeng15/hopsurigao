@@ -13,7 +13,7 @@ class PackagePerformanceReportService extends BaseReportService
 
     public function getReportTitle(): string
     {
-        return 'Package Performance & Popularity Report';
+        return 'Bookings per Package Report';
     }
 
     public function getViewName(): string
@@ -27,14 +27,8 @@ class PackagePerformanceReportService extends BaseReportService
 
         $query = Package::query()
             ->with([
-                'tourDates' => function ($tdQuery) use ($dateFrom, $dateTo) {
-                    if ($dateFrom && $dateTo) {
-                        $tdQuery->whereBetween('tour_date', [$dateFrom, $dateTo]);
-                    }
-                    $tdQuery->with([
-                        'bookings.payments',
-                    ]);
-                },
+                'tourOperator:id,name',
+                'tourDates.bookings.payments',
             ]);
 
         if (! empty($filters['package_id']) && $filters['package_id'] !== 'all') {
@@ -45,24 +39,60 @@ class PackagePerformanceReportService extends BaseReportService
             $query->where('status', $filters['status']);
         }
 
-        $packages = $query->get();
+        $packages = $query->orderBy('package_name')->get();
 
         $records = [];
         $overallBookings = 0;
         $overallGuests = 0;
         $overallRevenue = 0.0;
+        $overallGcash = 0.0;
+        $overallCash = 0.0;
 
         foreach ($packages as $pkg) {
-            $allBookings = $pkg->tourDates->flatMap->bookings;
+            $allBookings = $pkg->tourDates
+                ->flatMap->bookings
+                ->unique('id')
+                ->values();
+
+            if ($dateFrom && $dateTo) {
+                $allBookings = $allBookings->filter(function ($booking) use ($dateFrom, $dateTo) {
+                    $created = $booking->created_at?->toDateString();
+
+                    return $created !== null
+                        && $created >= $dateFrom
+                        && $created <= $dateTo;
+                })->values();
+            }
 
             $totalBookings = $allBookings->count();
-            $confirmedBookings = $allBookings->where('booking_status', 'confirmed')->count();
+            $confirmedBookings = $allBookings->whereIn('booking_status', ['confirmed', 'completed'])->count();
             $cancelledBookings = $allBookings->where('booking_status', 'cancelled')->count();
-            $totalGuests = (int) $allBookings->whereIn('booking_status', ['pending', 'confirmed', 'completed'])->sum('number_of_guests');
+            $totalGuests = (int) $allBookings
+                ->whereIn('booking_status', ['pending', 'confirmed', 'completed'])
+                ->sum('number_of_guests');
 
-            // Calculate verified revenue from paid/confirmed payments
-            $allPayments = $allBookings->flatMap->payments;
-            $revenue = (float) $allPayments->whereIn('payment_status', ['paid', 'partial', 'confirmed'])->sum('amount');
+            $gcashRevenue = 0.0;
+            $cashRevenue = 0.0;
+
+            foreach ($allBookings as $booking) {
+                foreach ($booking->payments as $payment) {
+                    if (! in_array($payment->payment_status, ['paid', 'partial'], true)) {
+                        continue;
+                    }
+
+                    $amount = (float) $payment->amount;
+                    $method = strtolower((string) $payment->payment_method);
+                    $gateway = strtolower((string) $payment->gateway);
+
+                    if ($gateway === 'paymongo' || $method === 'gcash') {
+                        $gcashRevenue += $amount;
+                    } else {
+                        $cashRevenue += $amount;
+                    }
+                }
+            }
+
+            $revenue = round($gcashRevenue + $cashRevenue, 2);
 
             $conversionRate = $totalBookings > 0
                 ? round(($confirmedBookings / $totalBookings) * 100, 1)
@@ -71,10 +101,13 @@ class PackagePerformanceReportService extends BaseReportService
             $overallBookings += $totalBookings;
             $overallGuests += $totalGuests;
             $overallRevenue += $revenue;
+            $overallGcash += $gcashRevenue;
+            $overallCash += $cashRevenue;
 
             $records[] = [
                 'id' => $pkg->id,
                 'package_name' => $pkg->package_name,
+                'operator_name' => $pkg->tourOperator?->name ?? 'Unassigned',
                 'destination' => $pkg->destination,
                 'price' => (float) $pkg->price,
                 'status' => $pkg->status,
@@ -83,11 +116,12 @@ class PackagePerformanceReportService extends BaseReportService
                 'cancelled_bookings' => $cancelledBookings,
                 'total_guests' => $totalGuests,
                 'revenue' => $revenue,
+                'gcash_revenue' => round($gcashRevenue, 2),
+                'cash_revenue' => round($cashRevenue, 2),
                 'conversion_rate' => $conversionRate,
             ];
         }
 
-        // Sort records by revenue desc
         usort($records, fn ($a, $b) => $b['revenue'] <=> $a['revenue']);
 
         $topPackageByBookings = count($records) > 0
@@ -102,7 +136,9 @@ class PackagePerformanceReportService extends BaseReportService
             'total_packages_count' => count($records),
             'overall_total_bookings' => $overallBookings,
             'overall_total_guests' => $overallGuests,
-            'overall_total_revenue' => $overallRevenue,
+            'overall_total_revenue' => round($overallRevenue, 2),
+            'overall_gcash_revenue' => round($overallGcash, 2),
+            'overall_cash_revenue' => round($overallCash, 2),
             'most_booked_package' => $topPackageByBookings,
             'highest_revenue_package' => $topPackageByRevenue,
         ];
@@ -113,6 +149,7 @@ class PackagePerformanceReportService extends BaseReportService
             'records' => $records,
             'meta' => [
                 'filters_applied' => array_filter($filters),
+                'note' => 'GCash amounts are PayMongo-verified payments. Cash amounts are recorded walk-in/operator cash receipts. Each booking is counted once.',
             ],
         ];
     }

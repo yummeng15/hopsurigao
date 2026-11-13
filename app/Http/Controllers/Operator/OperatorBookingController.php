@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Operator;
 
 use App\Http\Controllers\Controller;
 use App\Models\Booking;
+use App\Services\BookingPaymentStatus;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
@@ -18,6 +19,10 @@ use Inertia\Response;
  */
 class OperatorBookingController extends Controller
 {
+    public function __construct(
+        private BookingPaymentStatus $paymentStatus,
+    ) {}
+
     public function index(Request $request): Response
     {
         $operatorId = $this->operatorId($request);
@@ -37,6 +42,7 @@ class OperatorBookingController extends Controller
                 'user:id,name',
                 'tourDate:id,package_id,tour_date',
                 'tourDate.package:id,package_name',
+                'payments',
             ]);
 
         if ($status !== '') {
@@ -54,14 +60,22 @@ class OperatorBookingController extends Controller
         $bookings = $query->orderByDesc('id')
             ->paginate(12)
             ->withQueryString()
-            ->through(fn (Booking $booking): array => [
-                'id' => (int) $booking->id,
-                'tourist' => (string) ($booking->user?->name ?? 'Unknown customer'),
-                'package' => (string) ($booking->tourDate?->package?->package_name ?? 'Unknown tour'),
-                'tour_date' => $booking->tourDate?->tour_date?->format('Y-m-d'),
-                'guests' => (int) $booking->number_of_guests,
-                'status' => (string) $booking->booking_status,
-            ]);
+            ->through(function (Booking $booking): array {
+                $payment = $this->paymentStatus->summarize($booking);
+
+                return [
+                    'id' => (int) $booking->id,
+                    'tourist' => (string) ($booking->user?->name ?? 'Unknown customer'),
+                    'package' => (string) ($booking->tourDate?->package?->package_name ?? 'Unknown tour'),
+                    'tour_date' => $booking->tourDate?->tour_date?->format('Y-m-d'),
+                    'guests' => (int) $booking->number_of_guests,
+                    'status' => (string) $booking->booking_status,
+                    'payment_status' => $payment['status'],
+                    'payment_label' => $payment['label'],
+                    'amount_paid' => $payment['amount_paid'],
+                    'total_amount' => $payment['total_amount'],
+                ];
+            });
 
         return Inertia::render('operator/Bookings', [
             'bookings' => $bookings,
@@ -85,8 +99,11 @@ class OperatorBookingController extends Controller
                 'tourDate.package:id,package_name,destination',
                 'pickupSchedule:id,pickup_location_id,pickup_time',
                 'pickupSchedule.pickupLocation:id,name',
+                'payments',
             ])
             ->firstOrFail();
+
+        $payment = $this->paymentStatus->summarize($record);
 
         return Inertia::render('operator/BookingDetails', [
             'booking' => [
@@ -106,6 +123,7 @@ class OperatorBookingController extends Controller
                 'guests' => (int) $record->number_of_guests,
                 'status' => (string) $record->booking_status,
                 'created_at' => $record->created_at?->format('Y-m-d H:i'),
+                'payment' => $payment,
             ],
         ]);
     }

@@ -175,11 +175,24 @@ const reportColumns = computed(() => {
         case 'package-performance':
             return [
                 { key: 'package_name', label: 'Package', sortable: true },
+                { key: 'operator_name', label: 'Tour Operator', sortable: true },
                 { key: 'destination', label: 'Destination', sortable: true },
-                { key: 'price', label: 'Rate', sortable: true, align: 'right' },
                 { key: 'total_bookings', label: 'Bookings', sortable: true, align: 'center', width: '90px' },
                 { key: 'confirmed_bookings', label: 'Confirmed', sortable: true, align: 'center', width: '100px' },
-                { key: 'total_guests', label: 'Guests', sortable: true, align: 'center', width: '90px' },
+                { key: 'cancelled_bookings', label: 'Cancelled', sortable: true, align: 'center', width: '100px' },
+                { key: 'gcash_revenue', label: 'GCash Revenue', sortable: true, align: 'right' },
+                { key: 'cash_revenue', label: 'Cash Revenue', sortable: true, align: 'right' },
+                { key: 'revenue', label: 'Verified Revenue', sortable: true, align: 'right' },
+            ];
+        case 'operator-performance':
+            return [
+                { key: 'operator_name', label: 'Tour Operator', sortable: true },
+                { key: 'approval_status', label: 'Status', sortable: true, align: 'center', width: '110px' },
+                { key: 'total_bookings', label: 'Bookings', sortable: true, align: 'center', width: '90px' },
+                { key: 'confirmed_bookings', label: 'Confirmed', sortable: true, align: 'center', width: '100px' },
+                { key: 'cancelled_bookings', label: 'Cancelled', sortable: true, align: 'center', width: '100px' },
+                { key: 'gcash_revenue', label: 'GCash Revenue', sortable: true, align: 'right' },
+                { key: 'cash_revenue', label: 'Cash Revenue', sortable: true, align: 'right' },
                 { key: 'revenue', label: 'Verified Revenue', sortable: true, align: 'right' },
             ];
         case 'weather-advisory':

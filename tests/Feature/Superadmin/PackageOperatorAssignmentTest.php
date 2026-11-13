@@ -19,7 +19,7 @@ beforeEach(function (): void {
     Notification::fake();
 });
 
-function assignmentOperator(string $name, bool $active = true): array
+function packageAssignmentOperator(string $name, bool $active = true): array
 {
     $operator = TourOperator::query()->create([
         'name' => $name.' '.Str::random(5),
@@ -36,7 +36,7 @@ function assignmentOperator(string $name, bool $active = true): array
     return compact('operator', 'admin');
 }
 
-function assignmentPackage(string $name): int
+function packageAssignmentPackage(string $name): int
 {
     return DB::table('packages')->insertGetId([
         'tour_operator_id' => null,
@@ -51,7 +51,7 @@ function assignmentPackage(string $name): int
     ]);
 }
 
-function assignmentSchedule(int $packageId, ?int $operatorId): array
+function packageAssignmentSchedule(int $packageId, ?int $operatorId): array
 {
     $date = DB::table('tour_dates')->insertGetId([
         'package_id' => $packageId,
@@ -84,10 +84,10 @@ function assignmentSchedule(int $packageId, ?int $operatorId): array
 }
 
 test('superadmin sees unassigned packages and can assign several to one active business', function () {
-    $first = assignmentOperator('Harbor');
-    $second = assignmentOperator('Cove');
-    $packageA = assignmentPackage('Harbor Hop');
-    $packageB = assignmentPackage('Harbor Cove');
+    $first = packageAssignmentOperator('Harbor');
+    $second = packageAssignmentOperator('Cove');
+    $packageA = packageAssignmentPackage('Harbor Hop');
+    $packageB = packageAssignmentPackage('Harbor Cove');
     $before = TourOperator::query()->count();
     $superadmin = User::factory()->create([
         'role_id' => Role::query()->firstOrCreate(['name' => 'Superadmin'])->id,
@@ -131,9 +131,9 @@ test('superadmin sees unassigned packages and can assign several to one active b
 });
 
 test('a new booking follows the assigned package and stays hidden from the other operator', function () {
-    $first = assignmentOperator('North');
-    $second = assignmentOperator('South');
-    $packageId = assignmentPackage('North Route');
+    $first = packageAssignmentOperator('North');
+    $second = packageAssignmentOperator('South');
+    $packageId = packageAssignmentPackage('North Route');
     $superadmin = User::factory()->create([
         'role_id' => Role::query()->firstOrCreate(['name' => 'Superadmin'])->id,
     ]);
@@ -145,7 +145,7 @@ test('a new booking follows the assigned package and stays hidden from the other
         ])
         ->assertRedirect();
 
-    $schedule = assignmentSchedule($packageId, $first['operator']->id);
+    $schedule = packageAssignmentSchedule($packageId, $first['operator']->id);
     $tourist = User::factory()->create([
         'role_id' => Role::query()->firstOrCreate(['name' => 'User'])->id,
     ]);
@@ -180,8 +180,8 @@ test('a new booking follows the assigned package and stays hidden from the other
 });
 
 test('tourists cannot book an unassigned package and inactive businesses cannot receive packages', function () {
-    $packageId = assignmentPackage('Open Water');
-    $schedule = assignmentSchedule($packageId, null);
+    $packageId = packageAssignmentPackage('Open Water');
+    $schedule = packageAssignmentSchedule($packageId, null);
 
     $tourist = User::factory()->create([
         'role_id' => Role::query()->firstOrCreate(['name' => 'User'])->id,
@@ -201,7 +201,7 @@ test('tourists cannot book an unassigned package and inactive businesses cannot 
 
     expect(Booking::query()->where('user_id', $tourist->id)->count())->toBe(0);
 
-    $inactive = assignmentOperator('Closed', false);
+    $inactive = packageAssignmentOperator('Closed', false);
     $superadmin = User::factory()->create([
         'role_id' => Role::query()->firstOrCreate(['name' => 'Superadmin'])->id,
     ]);

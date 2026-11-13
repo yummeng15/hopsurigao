@@ -29,7 +29,11 @@
         </table>
     </div>
 
-    <div class="section-title">Package Performance & Popularity Ranking</div>
+    <div class="section-title">Bookings per Package</div>
+    <p class="text-muted" style="margin-bottom: 10px; font-size: 10px;">
+        GCash (PayMongo Test Mode): ₱{{ number_format($summary['overall_gcash_revenue'] ?? 0, 2) }}
+        · Walk-in Cash: ₱{{ number_format($summary['overall_cash_revenue'] ?? 0, 2) }}
+    </p>
 
     @if(empty($records))
         <div class="empty-state">
@@ -39,15 +43,15 @@
         <table class="data-table">
             <thead>
                 <tr>
-                    <th style="width: 22%;">Package Name</th>
-                    <th style="width: 14%;">Destination</th>
-                    <th style="width: 11%; text-align: right;">Rate / Guest</th>
-                    <th style="width: 9%; text-align: center;">Bookings</th>
-                    <th style="width: 9%; text-align: center;">Confirmed</th>
+                    <th style="width: 20%;">Package Name</th>
+                    <th style="width: 14%;">Tour Operator</th>
+                    <th style="width: 10%;">Destination</th>
+                    <th style="width: 8%; text-align: center;">Bookings</th>
+                    <th style="width: 8%; text-align: center;">Confirmed</th>
                     <th style="width: 8%; text-align: center;">Cancelled</th>
                     <th style="width: 8%; text-align: center;">Guests</th>
-                    <th style="width: 11%; text-align: center;">Conversion</th>
-                    <th style="width: 14%; text-align: right;">Verified Revenue</th>
+                    <th style="width: 12%; text-align: right;">GCash</th>
+                    <th style="width: 12%; text-align: right;">Cash</th>
                 </tr>
             </thead>
             <tbody>
@@ -57,20 +61,14 @@
                             <div>{{ $row['package_name'] }}</div>
                             <div class="text-muted" style="font-size: 8px;">Status: {{ ucfirst($row['status']) }}</div>
                         </td>
+                        <td>{{ $row['operator_name'] ?? 'Unassigned' }}</td>
                         <td>{{ $row['destination'] }}</td>
-                        <td class="text-right">₱{{ number_format($row['price'], 2) }}</td>
                         <td class="text-center font-bold">{{ $row['total_bookings'] }}</td>
                         <td class="text-center font-bold" style="color: #16a34a;">{{ $row['confirmed_bookings'] }}</td>
                         <td class="text-center" style="color: #dc2626;">{{ $row['cancelled_bookings'] }}</td>
                         <td class="text-center font-bold" style="color: #0369a1;">{{ $row['total_guests'] }}</td>
-                        <td class="text-center">
-                            <span class="badge {{ $row['conversion_rate'] >= 70 ? 'badge-green' : ($row['conversion_rate'] >= 40 ? 'badge-yellow' : 'badge-gray') }}">
-                                {{ $row['conversion_rate'] }}%
-                            </span>
-                        </td>
-                        <td class="text-right font-bold" style="color: #16a34a;">
-                            ₱{{ number_format($row['revenue'], 2) }}
-                        </td>
+                        <td class="text-right">₱{{ number_format($row['gcash_revenue'] ?? 0, 2) }}</td>
+                        <td class="text-right">₱{{ number_format($row['cash_revenue'] ?? 0, 2) }}</td>
                     </tr>
                 @endforeach
             </tbody>

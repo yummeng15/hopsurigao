@@ -16,6 +16,7 @@ class ReportManager
         'tourist' => TouristReportService::class,
         'pickup-schedule' => PickupScheduleReportService::class,
         'package-performance' => PackagePerformanceReportService::class,
+        'operator-performance' => OperatorPerformanceReportService::class,
         'weather-advisory' => WeatherAdvisoryReportService::class,
     ];
 
@@ -64,10 +65,17 @@ class ReportManager
             ],
             [
                 'id' => 'package-performance',
-                'title' => 'Package Performance Report',
-                'description' => 'Comparative popularity analytics, sales volumes, conversion rates, and revenue generation per island package.',
+                'title' => 'Bookings per Package Report',
+                'description' => 'Booking totals and verified revenue grouped by tour package and associated tour operator. Separates PayMongo GCash from walk-in cash.',
                 'icon' => 'TrendingUp',
                 'supported_filters' => ['date_from', 'date_to', 'package_id', 'status'],
+            ],
+            [
+                'id' => 'operator-performance',
+                'title' => 'Bookings per Operator Report',
+                'description' => 'Consolidated booking totals and verified revenue grouped by registered tour operator business.',
+                'icon' => 'Users',
+                'supported_filters' => ['date_from', 'date_to'],
             ],
             [
                 'id' => 'weather-advisory',
@@ -86,7 +94,7 @@ class ReportManager
      */
     public function resolveService(string $type): BaseReportService
     {
-        if (!isset($this->services[$type])) {
+        if (! isset($this->services[$type])) {
             throw new InvalidArgumentException("Report type [{$type}] is not supported.");
         }
 
@@ -119,4 +127,3 @@ class ReportManager
         return $this->resolveService($type)->getFilename($filters);
     }
 }
-

@@ -11,7 +11,30 @@ type BookingRow = {
     tour_date: string | null;
     guests: number;
     status: string;
+    payment_status: string;
+    payment_label: string;
+    amount_paid: number;
+    total_amount: number;
 };
+
+function paymentBadgeClass(status: string): string {
+    switch (status) {
+        case 'paid':
+            return 'border-emerald-500/40 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300';
+        case 'unpaid':
+            return 'border-red-500/40 bg-red-500/15 text-red-700 dark:text-red-300';
+        case 'partial':
+            return 'border-amber-500/40 bg-amber-500/15 text-amber-800 dark:text-amber-200';
+        case 'pending':
+            return 'border-sky-500/40 bg-sky-500/15 text-sky-700 dark:text-sky-300';
+        case 'refunded':
+            return 'border-violet-500/40 bg-violet-500/15 text-violet-700 dark:text-violet-300';
+        case 'failed':
+            return 'border-rose-500/40 bg-rose-500/15 text-rose-700 dark:text-rose-300';
+        default:
+            return 'border-border bg-muted text-foreground';
+    }
+}
 
 type BookingsPagination = {
     data: BookingRow[];
@@ -147,7 +170,7 @@ function clearFilters(): void {
             </p>
 
             <div v-else class="overflow-x-auto">
-                <table class="w-full min-w-[760px] text-left text-sm text-foreground">
+                <table class="w-full min-w-[860px] text-left text-sm text-foreground">
                     <thead class="border-b border-border text-foreground/65">
                         <tr>
                             <th scope="col" class="px-5 py-3">Reference</th>
@@ -156,6 +179,7 @@ function clearFilters(): void {
                             <th scope="col" class="px-5 py-3">Tour date</th>
                             <th scope="col" class="px-5 py-3">Guests</th>
                             <th scope="col" class="px-5 py-3">Status</th>
+                            <th scope="col" class="px-5 py-3">Payment Status</th>
                             <th scope="col" class="px-5 py-3">Action</th>
                         </tr>
                     </thead>
@@ -189,6 +213,15 @@ function clearFilters(): void {
                             <td class="px-5 py-4">
                                 <span class="rounded-full border border-border bg-muted px-2 py-1 text-xs font-medium capitalize text-foreground">
                                     {{ booking.status }}
+                                </span>
+                            </td>
+
+                            <td class="px-5 py-4">
+                                <span
+                                    class="rounded-full border px-2 py-1 text-xs font-semibold uppercase tracking-wide"
+                                    :class="paymentBadgeClass(booking.payment_status)"
+                                >
+                                    {{ booking.payment_label }}
                                 </span>
                             </td>
 

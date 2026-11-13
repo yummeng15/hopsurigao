@@ -8,6 +8,7 @@ use App\Models\BookingFeedback;
 use App\Models\Package;
 use App\Models\PickupLocation;
 use App\Models\TourDate;
+use App\Services\BookingPaymentStatus;
 use App\Services\WeatherService;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
@@ -87,6 +88,8 @@ class OperatorOperationsController extends Controller
                 'completed' => 0,
                 'cancelled' => 0,
             ],
+            'packageReport' => [],
+            'operatorReport' => null,
         ];
 
         if ($section === 'boats') {
@@ -178,20 +181,99 @@ class OperatorOperationsController extends Controller
         }
 
         if ($section === 'reports') {
-            $counts = Booking::query()
+            $bookings = Booking::query()
                 ->whereHas(
                     'tourDate.package',
                     fn ($q) => $q->where('tour_operator_id', $id)
                 )
-                ->selectRaw('booking_status, COUNT(*) as total')
+                ->with([
+                    'tourDate.package:id,package_name,tour_operator_id',
+                    'payments',
+                ])
+                ->get();
+
+            $counts = $bookings
                 ->groupBy('booking_status')
-                ->pluck('total', 'booking_status');
+                ->map->count();
 
             $payload['summary'] = [
                 'pending' => (int) ($counts['pending'] ?? 0),
                 'confirmed' => (int) ($counts['confirmed'] ?? 0),
                 'completed' => (int) ($counts['completed'] ?? 0),
                 'cancelled' => (int) ($counts['cancelled'] ?? 0),
+            ];
+
+            $byPackage = [];
+
+            foreach ($bookings as $booking) {
+                $package = $booking->tourDate?->package;
+                $packageId = (int) ($package?->id ?? 0);
+                $packageName = (string) ($package?->package_name ?? 'Unknown package');
+
+                if (! isset($byPackage[$packageId])) {
+                    $byPackage[$packageId] = [
+                        'package_id' => $packageId,
+                        'package_name' => $packageName,
+                        'operator_name' => (string) $request->user()->tourOperator->name,
+                        'total_bookings' => 0,
+                        'confirmed_bookings' => 0,
+                        'cancelled_bookings' => 0,
+                        'revenue' => 0.0,
+                        'gcash_revenue' => 0.0,
+                        'cash_revenue' => 0.0,
+                    ];
+                }
+
+                $byPackage[$packageId]['total_bookings']++;
+
+                if (in_array($booking->booking_status, ['confirmed', 'completed'], true)) {
+                    $byPackage[$packageId]['confirmed_bookings']++;
+                }
+
+                if ($booking->booking_status === 'cancelled') {
+                    $byPackage[$packageId]['cancelled_bookings']++;
+                }
+
+                foreach ($booking->payments as $payment) {
+                    if (! in_array($payment->payment_status, ['paid', 'partial'], true)) {
+                        continue;
+                    }
+
+                    $amount = (float) $payment->amount;
+                    $method = strtolower((string) $payment->payment_method);
+                    $gateway = strtolower((string) $payment->gateway);
+
+                    if ($gateway === 'paymongo' || $method === 'gcash') {
+                        $byPackage[$packageId]['gcash_revenue'] += $amount;
+                    } else {
+                        $byPackage[$packageId]['cash_revenue'] += $amount;
+                    }
+
+                    $byPackage[$packageId]['revenue'] += $amount;
+                }
+            }
+
+            $packageReport = collect($byPackage)
+                ->map(function (array $row): array {
+                    $row['gcash_revenue'] = round($row['gcash_revenue'], 2);
+                    $row['cash_revenue'] = round($row['cash_revenue'], 2);
+                    $row['revenue'] = round($row['revenue'], 2);
+
+                    return $row;
+                })
+                ->sortByDesc('total_bookings')
+                ->values()
+                ->all();
+
+            $payload['packageReport'] = $packageReport;
+            $payload['operatorReport'] = [
+                'operator_name' => (string) $request->user()->tourOperator->name,
+                'total_bookings' => $bookings->count(),
+                'confirmed_bookings' => $bookings->whereIn('booking_status', ['confirmed', 'completed'])->count(),
+                'cancelled_bookings' => $bookings->where('booking_status', 'cancelled')->count(),
+                'revenue' => round((float) collect($packageReport)->sum('revenue'), 2),
+                'gcash_revenue' => round((float) collect($packageReport)->sum('gcash_revenue'), 2),
+                'cash_revenue' => round((float) collect($packageReport)->sum('cash_revenue'), 2),
             ];
         }
 
@@ -374,7 +456,8 @@ class OperatorOperationsController extends Controller
     }
 
     public function report(
-        Request $request
+        Request $request,
+        BookingPaymentStatus $paymentStatus,
     ): StreamedResponse {
         $id = $this->operatorId($request);
 
@@ -405,7 +488,7 @@ class OperatorOperationsController extends Controller
             .$values['from'].'-'.$values['to'].'.csv';
 
         return response()->streamDownload(
-            function () use ($id, $start, $end): void {
+            function () use ($id, $start, $end, $paymentStatus): void {
                 $out = fopen('php://output', 'w');
 
                 fputcsv($out, [
@@ -415,11 +498,14 @@ class OperatorOperationsController extends Controller
                     'Package',
                     'Tour Date',
                     'Guests',
-                    'Status',
+                    'Booking Status',
+                    'Payment Status',
                     'Price Source',
                     'Saved Total',
                     'Amount Received',
                     'Balance',
+                    'GCash Received',
+                    'Cash Received',
                 ]);
 
                 Booking::query()
@@ -442,13 +528,27 @@ class OperatorOperationsController extends Controller
                     ->orderBy('id')
                     ->chunkById(
                         200,
-                        function ($bookings) use ($out): void {
+                        function ($bookings) use ($out, $paymentStatus): void {
                             foreach ($bookings as $b) {
-                                $total = $b->booked_total === null
-                                    ? null
-                                    : (float) $b->booked_total;
+                                $summary = $paymentStatus->summarize($b);
+                                $gcash = 0.0;
+                                $cash = 0.0;
 
-                                $received = $b->amountReceived();
+                                foreach ($b->payments as $payment) {
+                                    if (! in_array($payment->payment_status, ['paid', 'partial'], true)) {
+                                        continue;
+                                    }
+
+                                    $amount = (float) $payment->amount;
+                                    $method = strtolower((string) $payment->payment_method);
+                                    $gateway = strtolower((string) $payment->gateway);
+
+                                    if ($gateway === 'paymongo' || $method === 'gcash') {
+                                        $gcash += $amount;
+                                    } else {
+                                        $cash += $amount;
+                                    }
+                                }
 
                                 // Prevent spreadsheet formula injection.
                                 $text = fn ($v): string => preg_match(
@@ -470,15 +570,13 @@ class OperatorOperationsController extends Controller
                                         ?->format('Y-m-d'),
                                     $b->number_of_guests,
                                     $b->booking_status,
+                                    $summary['label'],
                                     $b->price_snapshot_source,
-                                    $total,
-                                    $received,
-                                    $total === null
-                                        ? null
-                                        : round(
-                                            max(0, $total - $received),
-                                            2
-                                        ),
+                                    $summary['total_amount'],
+                                    $summary['amount_paid'],
+                                    $summary['remaining_balance'],
+                                    round($gcash, 2),
+                                    round($cash, 2),
                                 ]);
                             }
                         }
