@@ -32,7 +32,9 @@ class OperatorPerformanceReportService extends BaseReportService
 
         $records = [];
         $overallBookings = 0;
+        $overallPending = 0;
         $overallConfirmed = 0;
+        $overallCompleted = 0;
         $overallCancelled = 0;
         $overallRevenue = 0.0;
         $overallGcash = 0.0;
@@ -57,7 +59,9 @@ class OperatorPerformanceReportService extends BaseReportService
             $bookings = $bookingsQuery->get();
 
             $totalBookings = $bookings->count();
-            $confirmedBookings = $bookings->whereIn('booking_status', ['confirmed', 'completed'])->count();
+            $pendingBookings = $bookings->where('booking_status', 'pending')->count();
+            $confirmedBookings = $bookings->where('booking_status', 'confirmed')->count();
+            $completedBookings = $bookings->where('booking_status', 'completed')->count();
             $cancelledBookings = $bookings->where('booking_status', 'cancelled')->count();
 
             $gcashRevenue = 0.0;
@@ -86,7 +90,9 @@ class OperatorPerformanceReportService extends BaseReportService
             $revenue = round($gcashRevenue + $cashRevenue, 2);
 
             $overallBookings += $totalBookings;
+            $overallPending += $pendingBookings;
             $overallConfirmed += $confirmedBookings;
+            $overallCompleted += $completedBookings;
             $overallCancelled += $cancelledBookings;
             $overallRevenue += $revenue;
             $overallGcash += $gcashRevenue;
@@ -97,7 +103,9 @@ class OperatorPerformanceReportService extends BaseReportService
                 'operator_name' => $operator->name,
                 'approval_status' => $operator->approval_status,
                 'total_bookings' => $totalBookings,
+                'pending_bookings' => $pendingBookings,
                 'confirmed_bookings' => $confirmedBookings,
+                'completed_bookings' => $completedBookings,
                 'cancelled_bookings' => $cancelledBookings,
                 'revenue' => $revenue,
                 'gcash_revenue' => round($gcashRevenue, 2),
@@ -112,7 +120,9 @@ class OperatorPerformanceReportService extends BaseReportService
             'summary' => [
                 'total_operators' => count($records),
                 'overall_total_bookings' => $overallBookings,
+                'overall_pending_bookings' => $overallPending,
                 'overall_confirmed_bookings' => $overallConfirmed,
+                'overall_completed_bookings' => $overallCompleted,
                 'overall_cancelled_bookings' => $overallCancelled,
                 'overall_total_revenue' => round($overallRevenue, 2),
                 'overall_gcash_revenue' => round($overallGcash, 2),
@@ -121,7 +131,7 @@ class OperatorPerformanceReportService extends BaseReportService
             'records' => $records,
             'meta' => [
                 'filters_applied' => array_filter($filters),
-                'note' => 'Revenue counts paid/partial payment rows once per payment. Booking totals count each booking once even when multiple payment attempts exist.',
+                'note' => 'Booking statuses counted separately: pending, confirmed, completed, cancelled. Each booking is counted once even with multiple payment attempts. Revenue counts paid/partial payment rows.',
             ],
         ];
     }

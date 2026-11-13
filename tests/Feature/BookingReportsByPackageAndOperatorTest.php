@@ -143,7 +143,9 @@ function reportFixture(): array
         return $booking;
     };
 
-    // Operator A: 1 confirmed+gcash, 1 cancelled unpaid, 1 confirmed+cash
+    // Operator A: pending, confirmed+gcash (with failed retry), completed+cash, cancelled
+    $makeBooking($packageA, $operatorA->id, 'pending');
+
     $confirmedGcash = $makeBooking($packageA, $operatorA->id, 'confirmed', [
         'amount' => 4000,
         'method' => 'gcash',
@@ -152,13 +154,14 @@ function reportFixture(): array
     ]);
     addPaymentAttempt($confirmedGcash, 4000, 'failed');
 
-    $makeBooking($packageA, $operatorA->id, 'cancelled');
-    $makeBooking($packageA, $operatorA->id, 'confirmed', [
+    $makeBooking($packageA, $operatorA->id, 'completed', [
         'amount' => 4000,
         'method' => 'cash',
         'gateway' => null,
         'status' => 'paid',
     ]);
+
+    $makeBooking($packageA, $operatorA->id, 'cancelled');
 
     // Operator B: 1 confirmed+gcash
     $makeBooking($packageB, $operatorB->id, 'confirmed', [
@@ -191,7 +194,7 @@ function addPaymentAttempt(Booking $booking, float $amount, string $status): voi
     ]);
 }
 
-test('package performance report groups by package and separates gcash from cash', function () {
+test('package performance report groups by package and separates status and payment totals', function () {
     $fixture = reportFixture();
 
     $data = app(PackagePerformanceReportService::class)->getData([
@@ -204,17 +207,27 @@ test('package performance report groups by package and separates gcash from cash
 
     expect($alpha)->not->toBeNull()
         ->and($alpha['operator_name'])->toBe($fixture['operator_a']->name)
-        ->and($alpha['total_bookings'])->toBe(3)
-        ->and($alpha['confirmed_bookings'])->toBe(2)
+        ->and($alpha['total_bookings'])->toBe(4)
+        ->and($alpha['pending_bookings'])->toBe(1)
+        ->and($alpha['confirmed_bookings'])->toBe(1)
+        ->and($alpha['completed_bookings'])->toBe(1)
         ->and($alpha['cancelled_bookings'])->toBe(1)
+        ->and($alpha['pending_bookings'] + $alpha['confirmed_bookings'] + $alpha['completed_bookings'] + $alpha['cancelled_bookings'])->toBe($alpha['total_bookings'])
         ->and($alpha['gcash_revenue'])->toBe(4000.0)
         ->and($alpha['cash_revenue'])->toBe(4000.0)
         ->and($alpha['revenue'])->toBe(8000.0)
         ->and($beta['total_bookings'])->toBe(1)
-        ->and($beta['gcash_revenue'])->toBe(5000.0);
+        ->and($beta['pending_bookings'])->toBe(0)
+        ->and($beta['confirmed_bookings'])->toBe(1)
+        ->and($beta['completed_bookings'])->toBe(0)
+        ->and($beta['gcash_revenue'])->toBe(5000.0)
+        ->and($data['summary']['overall_pending_bookings'])->toBe(1)
+        ->and($data['summary']['overall_confirmed_bookings'])->toBe(2)
+        ->and($data['summary']['overall_completed_bookings'])->toBe(1)
+        ->and($data['summary']['overall_cancelled_bookings'])->toBe(1);
 });
 
-test('operator performance report consolidates across businesses', function () {
+test('operator performance report consolidates across businesses with status splits', function () {
     $fixture = reportFixture();
 
     $data = app(OperatorPerformanceReportService::class)->getData([
@@ -225,16 +238,25 @@ test('operator performance report consolidates across businesses', function () {
     $alpha = collect($data['records'])->firstWhere('operator_id', $fixture['operator_a']->id);
     $beta = collect($data['records'])->firstWhere('operator_id', $fixture['operator_b']->id);
 
-    expect($alpha['total_bookings'])->toBe(3)
-        ->and($alpha['confirmed_bookings'])->toBe(2)
+    expect($alpha['total_bookings'])->toBe(4)
+        ->and($alpha['pending_bookings'])->toBe(1)
+        ->and($alpha['confirmed_bookings'])->toBe(1)
+        ->and($alpha['completed_bookings'])->toBe(1)
         ->and($alpha['cancelled_bookings'])->toBe(1)
+        ->and($alpha['pending_bookings'] + $alpha['confirmed_bookings'] + $alpha['completed_bookings'] + $alpha['cancelled_bookings'])->toBe($alpha['total_bookings'])
         ->and($alpha['gcash_revenue'])->toBe(4000.0)
         ->and($alpha['cash_revenue'])->toBe(4000.0)
         ->and($beta['total_bookings'])->toBe(1)
-        ->and($beta['revenue'])->toBe(5000.0);
+        ->and($beta['confirmed_bookings'])->toBe(1)
+        ->and($beta['completed_bookings'])->toBe(0)
+        ->and($beta['revenue'])->toBe(5000.0)
+        ->and($data['summary']['overall_pending_bookings'])->toBe(1)
+        ->and($data['summary']['overall_confirmed_bookings'])->toBe(2)
+        ->and($data['summary']['overall_completed_bookings'])->toBe(1)
+        ->and($data['summary']['overall_cancelled_bookings'])->toBe(1);
 });
 
-test('admin operator reports page shows only own package and operator totals', function () {
+test('admin operator reports page shows only own package and operator status totals', function () {
     $fixture = reportFixture();
 
     $this->actingAs($fixture['admin_a'])
@@ -243,19 +265,25 @@ test('admin operator reports page shows only own package and operator totals', f
         ->assertInertia(fn (Assert $page) => $page
             ->component('operator/Operations')
             ->where('section', 'reports')
-            ->where('operatorReport.total_bookings', 3)
-            ->where('operatorReport.confirmed_bookings', 2)
+            ->where('operatorReport.total_bookings', 4)
+            ->where('operatorReport.pending_bookings', 1)
+            ->where('operatorReport.confirmed_bookings', 1)
+            ->where('operatorReport.completed_bookings', 1)
             ->where('operatorReport.cancelled_bookings', 1)
             ->where('operatorReport.gcash_revenue', 4000)
             ->where('operatorReport.cash_revenue', 4000)
             ->has('packageReport', 1)
             ->where('packageReport.0.package_name', 'Alpha Island Hop')
-            ->where('packageReport.0.total_bookings', 3)
+            ->where('packageReport.0.total_bookings', 4)
+            ->where('packageReport.0.pending_bookings', 1)
+            ->where('packageReport.0.confirmed_bookings', 1)
+            ->where('packageReport.0.completed_bookings', 1)
+            ->where('packageReport.0.cancelled_bookings', 1)
             ->missing('packageReport.1')
         );
 });
 
-test('superadmin can preview operator performance report endpoint', function () {
+test('superadmin can preview operator performance report with pending and completed columns', function () {
     $fixture = reportFixture();
 
     $this->actingAs($fixture['superadmin'])
@@ -266,9 +294,24 @@ test('superadmin can preview operator performance report endpoint', function () 
         ]))
         ->assertOk()
         ->assertJsonPath('success', true)
+        ->assertJsonPath('data.summary.overall_pending_bookings', 1)
+        ->assertJsonPath('data.summary.overall_confirmed_bookings', 2)
+        ->assertJsonPath('data.summary.overall_completed_bookings', 1)
+        ->assertJsonPath('data.summary.overall_cancelled_bookings', 1)
         ->assertJson(fn ($json) => $json
             ->has('data.records')
             ->has('data.summary.overall_total_bookings')
             ->etc()
         );
+
+    $this->actingAs($fixture['superadmin'])
+        ->getJson('/admin/reports/preview?'.http_build_query([
+            'type' => 'package-performance',
+            'date_from' => now()->subDay()->toDateString(),
+            'date_to' => now()->addDay()->toDateString(),
+        ]))
+        ->assertOk()
+        ->assertJsonPath('success', true)
+        ->assertJsonPath('data.summary.overall_pending_bookings', 1)
+        ->assertJsonPath('data.summary.overall_completed_bookings', 1);
 });

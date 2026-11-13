@@ -216,7 +216,9 @@ class OperatorOperationsController extends Controller
                         'package_name' => $packageName,
                         'operator_name' => (string) $request->user()->tourOperator->name,
                         'total_bookings' => 0,
+                        'pending_bookings' => 0,
                         'confirmed_bookings' => 0,
+                        'completed_bookings' => 0,
                         'cancelled_bookings' => 0,
                         'revenue' => 0.0,
                         'gcash_revenue' => 0.0,
@@ -226,13 +228,13 @@ class OperatorOperationsController extends Controller
 
                 $byPackage[$packageId]['total_bookings']++;
 
-                if (in_array($booking->booking_status, ['confirmed', 'completed'], true)) {
-                    $byPackage[$packageId]['confirmed_bookings']++;
-                }
-
-                if ($booking->booking_status === 'cancelled') {
-                    $byPackage[$packageId]['cancelled_bookings']++;
-                }
+                match ($booking->booking_status) {
+                    'pending' => $byPackage[$packageId]['pending_bookings']++,
+                    'confirmed' => $byPackage[$packageId]['confirmed_bookings']++,
+                    'completed' => $byPackage[$packageId]['completed_bookings']++,
+                    'cancelled' => $byPackage[$packageId]['cancelled_bookings']++,
+                    default => null,
+                };
 
                 foreach ($booking->payments as $payment) {
                     if (! in_array($payment->payment_status, ['paid', 'partial'], true)) {
@@ -269,7 +271,9 @@ class OperatorOperationsController extends Controller
             $payload['operatorReport'] = [
                 'operator_name' => (string) $request->user()->tourOperator->name,
                 'total_bookings' => $bookings->count(),
-                'confirmed_bookings' => $bookings->whereIn('booking_status', ['confirmed', 'completed'])->count(),
+                'pending_bookings' => $bookings->where('booking_status', 'pending')->count(),
+                'confirmed_bookings' => $bookings->where('booking_status', 'confirmed')->count(),
+                'completed_bookings' => $bookings->where('booking_status', 'completed')->count(),
                 'cancelled_bookings' => $bookings->where('booking_status', 'cancelled')->count(),
                 'revenue' => round((float) collect($packageReport)->sum('revenue'), 2),
                 'gcash_revenue' => round((float) collect($packageReport)->sum('gcash_revenue'), 2),

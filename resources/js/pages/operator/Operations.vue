@@ -65,7 +65,9 @@ type PackageReportRow = {
     package_name: string;
     operator_name: string;
     total_bookings: number;
+    pending_bookings: number;
     confirmed_bookings: number;
+    completed_bookings: number;
     cancelled_bookings: number;
     revenue: number;
     gcash_revenue: number;
@@ -75,7 +77,9 @@ type PackageReportRow = {
 type OperatorReportRow = {
     operator_name: string;
     total_bookings: number;
+    pending_bookings: number;
     confirmed_bookings: number;
+    completed_bookings: number;
     cancelled_bookings: number;
     revenue: number;
     gcash_revenue: number;
@@ -903,14 +907,22 @@ const reportUrl = computed(
                     Bookings for {{ operatorReport.operator_name }}
                 </h3>
 
-                <div class="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+                <div class="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-8">
                     <div class="rounded-lg border p-3">
-                        <p class="text-xs text-muted-foreground">Total bookings</p>
+                        <p class="text-xs text-muted-foreground">Total</p>
                         <p class="mt-1 text-xl font-bold">{{ operatorReport.total_bookings }}</p>
+                    </div>
+                    <div class="rounded-lg border p-3">
+                        <p class="text-xs text-muted-foreground">Pending</p>
+                        <p class="mt-1 text-xl font-bold">{{ operatorReport.pending_bookings }}</p>
                     </div>
                     <div class="rounded-lg border p-3">
                         <p class="text-xs text-muted-foreground">Confirmed</p>
                         <p class="mt-1 text-xl font-bold">{{ operatorReport.confirmed_bookings }}</p>
+                    </div>
+                    <div class="rounded-lg border p-3">
+                        <p class="text-xs text-muted-foreground">Completed</p>
+                        <p class="mt-1 text-xl font-bold">{{ operatorReport.completed_bookings }}</p>
                     </div>
                     <div class="rounded-lg border p-3">
                         <p class="text-xs text-muted-foreground">Cancelled</p>
@@ -951,17 +963,19 @@ const reportUrl = computed(
                     v-else
                     class="mt-3 overflow-x-auto rounded-xl border"
                 >
-                    <table class="w-full min-w-[720px] text-left text-sm">
+                    <table class="w-full min-w-[920px] text-left text-sm">
                         <thead class="border-b bg-muted/40 text-muted-foreground">
                             <tr>
-                                <th class="px-4 py-3 font-semibold">Tour package</th>
-                                <th class="px-4 py-3 font-semibold">Operator</th>
-                                <th class="px-4 py-3 text-center font-semibold">Total</th>
-                                <th class="px-4 py-3 text-center font-semibold">Confirmed</th>
-                                <th class="px-4 py-3 text-center font-semibold">Cancelled</th>
-                                <th class="px-4 py-3 text-right font-semibold">GCash</th>
-                                <th class="px-4 py-3 text-right font-semibold">Cash</th>
-                                <th class="px-4 py-3 text-right font-semibold">Revenue</th>
+                                <th class="px-3 py-3 font-semibold">Tour package</th>
+                                <th class="px-3 py-3 font-semibold">Operator</th>
+                                <th class="px-3 py-3 text-center font-semibold">Total</th>
+                                <th class="px-3 py-3 text-center font-semibold">Pending</th>
+                                <th class="px-3 py-3 text-center font-semibold">Confirmed</th>
+                                <th class="px-3 py-3 text-center font-semibold">Completed</th>
+                                <th class="px-3 py-3 text-center font-semibold">Cancelled</th>
+                                <th class="px-3 py-3 text-right font-semibold">GCash</th>
+                                <th class="px-3 py-3 text-right font-semibold">Cash</th>
+                                <th class="px-3 py-3 text-right font-semibold">Revenue</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -970,28 +984,34 @@ const reportUrl = computed(
                                 :key="row.package_id"
                                 class="border-t"
                             >
-                                <td class="px-4 py-3 font-medium">
+                                <td class="px-3 py-3 font-medium">
                                     {{ row.package_name }}
                                 </td>
-                                <td class="px-4 py-3">
+                                <td class="px-3 py-3">
                                     {{ row.operator_name }}
                                 </td>
-                                <td class="px-4 py-3 text-center">
+                                <td class="px-3 py-3 text-center">
                                     {{ row.total_bookings }}
                                 </td>
-                                <td class="px-4 py-3 text-center">
+                                <td class="px-3 py-3 text-center">
+                                    {{ row.pending_bookings }}
+                                </td>
+                                <td class="px-3 py-3 text-center">
                                     {{ row.confirmed_bookings }}
                                 </td>
-                                <td class="px-4 py-3 text-center">
+                                <td class="px-3 py-3 text-center">
+                                    {{ row.completed_bookings }}
+                                </td>
+                                <td class="px-3 py-3 text-center">
                                     {{ row.cancelled_bookings }}
                                 </td>
-                                <td class="px-4 py-3 text-right">
+                                <td class="px-3 py-3 text-right">
                                     {{ money(row.gcash_revenue) }}
                                 </td>
-                                <td class="px-4 py-3 text-right">
+                                <td class="px-3 py-3 text-right">
                                     {{ money(row.cash_revenue) }}
                                 </td>
-                                <td class="px-4 py-3 text-right font-semibold">
+                                <td class="px-3 py-3 text-right font-semibold">
                                     {{ money(row.revenue) }}
                                 </td>
                             </tr>

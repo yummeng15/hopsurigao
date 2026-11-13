@@ -30,6 +30,12 @@
     </div>
 
     <div class="section-title">Bookings per Package</div>
+    <p class="text-muted" style="margin-bottom: 6px; font-size: 10px;">
+        Status totals — Pending: {{ number_format($summary['overall_pending_bookings'] ?? 0) }}
+        · Confirmed: {{ number_format($summary['overall_confirmed_bookings'] ?? 0) }}
+        · Completed: {{ number_format($summary['overall_completed_bookings'] ?? 0) }}
+        · Cancelled: {{ number_format($summary['overall_cancelled_bookings'] ?? 0) }}
+    </p>
     <p class="text-muted" style="margin-bottom: 10px; font-size: 10px;">
         GCash (PayMongo Test Mode): ₱{{ number_format($summary['overall_gcash_revenue'] ?? 0, 2) }}
         · Walk-in Cash: ₱{{ number_format($summary['overall_cash_revenue'] ?? 0, 2) }}
@@ -43,15 +49,17 @@
         <table class="data-table">
             <thead>
                 <tr>
-                    <th style="width: 20%;">Package Name</th>
-                    <th style="width: 14%;">Tour Operator</th>
-                    <th style="width: 10%;">Destination</th>
-                    <th style="width: 8%; text-align: center;">Bookings</th>
-                    <th style="width: 8%; text-align: center;">Confirmed</th>
-                    <th style="width: 8%; text-align: center;">Cancelled</th>
-                    <th style="width: 8%; text-align: center;">Guests</th>
-                    <th style="width: 12%; text-align: right;">GCash</th>
-                    <th style="width: 12%; text-align: right;">Cash</th>
+                    <th style="width: 16%;">Package Name</th>
+                    <th style="width: 12%;">Tour Operator</th>
+                    <th style="width: 8%;">Destination</th>
+                    <th style="width: 6%; text-align: center;">Total</th>
+                    <th style="width: 6%; text-align: center;">Pending</th>
+                    <th style="width: 7%; text-align: center;">Confirmed</th>
+                    <th style="width: 7%; text-align: center;">Completed</th>
+                    <th style="width: 7%; text-align: center;">Cancelled</th>
+                    <th style="width: 6%; text-align: center;">Guests</th>
+                    <th style="width: 10%; text-align: right;">GCash</th>
+                    <th style="width: 10%; text-align: right;">Cash</th>
                 </tr>
             </thead>
             <tbody>
@@ -64,7 +72,9 @@
                         <td>{{ $row['operator_name'] ?? 'Unassigned' }}</td>
                         <td>{{ $row['destination'] }}</td>
                         <td class="text-center font-bold">{{ $row['total_bookings'] }}</td>
+                        <td class="text-center" style="color: #d97706;">{{ $row['pending_bookings'] ?? 0 }}</td>
                         <td class="text-center font-bold" style="color: #16a34a;">{{ $row['confirmed_bookings'] }}</td>
+                        <td class="text-center font-bold" style="color: #0284c7;">{{ $row['completed_bookings'] ?? 0 }}</td>
                         <td class="text-center" style="color: #dc2626;">{{ $row['cancelled_bookings'] }}</td>
                         <td class="text-center font-bold" style="color: #0369a1;">{{ $row['total_guests'] }}</td>
                         <td class="text-right">₱{{ number_format($row['gcash_revenue'] ?? 0, 2) }}</td>
@@ -75,4 +85,3 @@
         </table>
     @endif
 @endsection
-

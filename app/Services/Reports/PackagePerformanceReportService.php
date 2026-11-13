@@ -65,7 +65,9 @@ class PackagePerformanceReportService extends BaseReportService
             }
 
             $totalBookings = $allBookings->count();
-            $confirmedBookings = $allBookings->whereIn('booking_status', ['confirmed', 'completed'])->count();
+            $pendingBookings = $allBookings->where('booking_status', 'pending')->count();
+            $confirmedBookings = $allBookings->where('booking_status', 'confirmed')->count();
+            $completedBookings = $allBookings->where('booking_status', 'completed')->count();
             $cancelledBookings = $allBookings->where('booking_status', 'cancelled')->count();
             $totalGuests = (int) $allBookings
                 ->whereIn('booking_status', ['pending', 'confirmed', 'completed'])
@@ -95,7 +97,7 @@ class PackagePerformanceReportService extends BaseReportService
             $revenue = round($gcashRevenue + $cashRevenue, 2);
 
             $conversionRate = $totalBookings > 0
-                ? round(($confirmedBookings / $totalBookings) * 100, 1)
+                ? round((($confirmedBookings + $completedBookings) / $totalBookings) * 100, 1)
                 : 0;
 
             $overallBookings += $totalBookings;
@@ -112,7 +114,9 @@ class PackagePerformanceReportService extends BaseReportService
                 'price' => (float) $pkg->price,
                 'status' => $pkg->status,
                 'total_bookings' => $totalBookings,
+                'pending_bookings' => $pendingBookings,
                 'confirmed_bookings' => $confirmedBookings,
+                'completed_bookings' => $completedBookings,
                 'cancelled_bookings' => $cancelledBookings,
                 'total_guests' => $totalGuests,
                 'revenue' => $revenue,
@@ -135,6 +139,10 @@ class PackagePerformanceReportService extends BaseReportService
         $summary = [
             'total_packages_count' => count($records),
             'overall_total_bookings' => $overallBookings,
+            'overall_pending_bookings' => (int) collect($records)->sum('pending_bookings'),
+            'overall_confirmed_bookings' => (int) collect($records)->sum('confirmed_bookings'),
+            'overall_completed_bookings' => (int) collect($records)->sum('completed_bookings'),
+            'overall_cancelled_bookings' => (int) collect($records)->sum('cancelled_bookings'),
             'overall_total_guests' => $overallGuests,
             'overall_total_revenue' => round($overallRevenue, 2),
             'overall_gcash_revenue' => round($overallGcash, 2),
@@ -149,7 +157,7 @@ class PackagePerformanceReportService extends BaseReportService
             'records' => $records,
             'meta' => [
                 'filters_applied' => array_filter($filters),
-                'note' => 'GCash amounts are PayMongo-verified payments. Cash amounts are recorded walk-in/operator cash receipts. Each booking is counted once.',
+                'note' => 'Booking statuses counted separately: pending, confirmed, completed, cancelled. Each booking is counted once. GCash amounts are PayMongo-verified payments; cash amounts are walk-in/operator receipts.',
             ],
         ];
     }

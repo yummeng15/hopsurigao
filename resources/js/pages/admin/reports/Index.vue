@@ -177,9 +177,11 @@ const reportColumns = computed(() => {
                 { key: 'package_name', label: 'Package', sortable: true },
                 { key: 'operator_name', label: 'Tour Operator', sortable: true },
                 { key: 'destination', label: 'Destination', sortable: true },
-                { key: 'total_bookings', label: 'Bookings', sortable: true, align: 'center', width: '90px' },
-                { key: 'confirmed_bookings', label: 'Confirmed', sortable: true, align: 'center', width: '100px' },
-                { key: 'cancelled_bookings', label: 'Cancelled', sortable: true, align: 'center', width: '100px' },
+                { key: 'total_bookings', label: 'Total', sortable: true, align: 'center', width: '80px' },
+                { key: 'pending_bookings', label: 'Pending', sortable: true, align: 'center', width: '80px' },
+                { key: 'confirmed_bookings', label: 'Confirmed', sortable: true, align: 'center', width: '90px' },
+                { key: 'completed_bookings', label: 'Completed', sortable: true, align: 'center', width: '90px' },
+                { key: 'cancelled_bookings', label: 'Cancelled', sortable: true, align: 'center', width: '90px' },
                 { key: 'gcash_revenue', label: 'GCash Revenue', sortable: true, align: 'right' },
                 { key: 'cash_revenue', label: 'Cash Revenue', sortable: true, align: 'right' },
                 { key: 'revenue', label: 'Verified Revenue', sortable: true, align: 'right' },
@@ -188,9 +190,11 @@ const reportColumns = computed(() => {
             return [
                 { key: 'operator_name', label: 'Tour Operator', sortable: true },
                 { key: 'approval_status', label: 'Status', sortable: true, align: 'center', width: '110px' },
-                { key: 'total_bookings', label: 'Bookings', sortable: true, align: 'center', width: '90px' },
-                { key: 'confirmed_bookings', label: 'Confirmed', sortable: true, align: 'center', width: '100px' },
-                { key: 'cancelled_bookings', label: 'Cancelled', sortable: true, align: 'center', width: '100px' },
+                { key: 'total_bookings', label: 'Total', sortable: true, align: 'center', width: '80px' },
+                { key: 'pending_bookings', label: 'Pending', sortable: true, align: 'center', width: '80px' },
+                { key: 'confirmed_bookings', label: 'Confirmed', sortable: true, align: 'center', width: '90px' },
+                { key: 'completed_bookings', label: 'Completed', sortable: true, align: 'center', width: '90px' },
+                { key: 'cancelled_bookings', label: 'Cancelled', sortable: true, align: 'center', width: '90px' },
                 { key: 'gcash_revenue', label: 'GCash Revenue', sortable: true, align: 'right' },
                 { key: 'cash_revenue', label: 'Cash Revenue', sortable: true, align: 'right' },
                 { key: 'revenue', label: 'Verified Revenue', sortable: true, align: 'right' },
@@ -954,9 +958,16 @@ defineOptions({
                                     </span>
                                 </template>
 
-                                <!-- Confirmed Bookings in Package Performance -->
+                                <template v-slot:[`cell-pending_bookings`]="{ row }">
+                                    <span class="font-bold text-sm text-amber-600 dark:text-amber-400">{{ row.pending_bookings }}</span>
+                                </template>
+
                                 <template v-slot:[`cell-confirmed_bookings`]="{ row }">
                                     <span class="font-bold text-sm text-emerald-600 dark:text-emerald-400">{{ row.confirmed_bookings }}</span>
+                                </template>
+
+                                <template v-slot:[`cell-completed_bookings`]="{ row }">
+                                    <span class="font-bold text-sm text-sky-600 dark:text-sky-400">{{ row.completed_bookings }}</span>
                                 </template>
 
                                 <!-- Revenue in Package Performance -->
