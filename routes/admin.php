@@ -88,8 +88,10 @@ Route::middleware('role:Admin,Superadmin')
         Route::get('boat-maintenance', [BoatMaintenanceController::class, 'index'])->name('boat-maintenance.index');
         Route::put('boat-maintenance/{package}', [BoatMaintenanceController::class, 'update'])->name('boat-maintenance.update');
 
-        Route::get('reports', [ReportController::class, 'index'])->name('reports.index');
-        Route::get('reports/preview', [ReportController::class, 'preview'])->name('reports.preview');
-        Route::get('reports/download', [ReportController::class, 'download'])->name('reports.download');
-        Route::get('reports/export', [ReportController::class, 'export'])->name('reports.export');
+        Route::middleware('role:Superadmin')->group(function (): void {
+            Route::get('reports', [ReportController::class, 'index'])->name('reports.index');
+            Route::get('reports/preview', [ReportController::class, 'preview'])->name('reports.preview');
+            Route::get('reports/download', [ReportController::class, 'download'])->name('reports.download');
+            Route::get('reports/export', [ReportController::class, 'export'])->name('reports.export');
+        });
     });

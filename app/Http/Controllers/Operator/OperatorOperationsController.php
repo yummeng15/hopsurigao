@@ -63,13 +63,8 @@ class OperatorOperationsController extends Controller
         return $this->section($request, 'feedback');
     }
 
-    public function reports(Request $request): Response
-    {
-        return $this->section($request, 'reports');
-    }
-
     /**
-     * @param  'boats'|'pickups'|'weather'|'feedback'|'reports'  $section
+     * @param  'boats'|'pickups'|'weather'|'feedback'  $section
      */
     private function section(Request $request, string $section): Response
     {
@@ -88,8 +83,6 @@ class OperatorOperationsController extends Controller
                 'completed' => 0,
                 'cancelled' => 0,
             ],
-            'packageReport' => [],
-            'operatorReport' => null,
         ];
 
         if ($section === 'boats') {
@@ -178,107 +171,6 @@ class OperatorOperationsController extends Controller
                     'overall_experience' => $f->overall_experience,
                     'comment' => $f->comment,
                 ])->values();
-        }
-
-        if ($section === 'reports') {
-            $bookings = Booking::query()
-                ->whereHas(
-                    'tourDate.package',
-                    fn ($q) => $q->where('tour_operator_id', $id)
-                )
-                ->with([
-                    'tourDate.package:id,package_name,tour_operator_id',
-                    'payments',
-                ])
-                ->get();
-
-            $counts = $bookings
-                ->groupBy('booking_status')
-                ->map->count();
-
-            $payload['summary'] = [
-                'pending' => (int) ($counts['pending'] ?? 0),
-                'confirmed' => (int) ($counts['confirmed'] ?? 0),
-                'completed' => (int) ($counts['completed'] ?? 0),
-                'cancelled' => (int) ($counts['cancelled'] ?? 0),
-            ];
-
-            $byPackage = [];
-
-            foreach ($bookings as $booking) {
-                $package = $booking->tourDate?->package;
-                $packageId = (int) ($package?->id ?? 0);
-                $packageName = (string) ($package?->package_name ?? 'Unknown package');
-
-                if (! isset($byPackage[$packageId])) {
-                    $byPackage[$packageId] = [
-                        'package_id' => $packageId,
-                        'package_name' => $packageName,
-                        'operator_name' => (string) $request->user()->tourOperator->name,
-                        'total_bookings' => 0,
-                        'pending_bookings' => 0,
-                        'confirmed_bookings' => 0,
-                        'completed_bookings' => 0,
-                        'cancelled_bookings' => 0,
-                        'revenue' => 0.0,
-                        'gcash_revenue' => 0.0,
-                        'cash_revenue' => 0.0,
-                    ];
-                }
-
-                $byPackage[$packageId]['total_bookings']++;
-
-                match ($booking->booking_status) {
-                    'pending' => $byPackage[$packageId]['pending_bookings']++,
-                    'confirmed' => $byPackage[$packageId]['confirmed_bookings']++,
-                    'completed' => $byPackage[$packageId]['completed_bookings']++,
-                    'cancelled' => $byPackage[$packageId]['cancelled_bookings']++,
-                    default => null,
-                };
-
-                foreach ($booking->payments as $payment) {
-                    if (! in_array($payment->payment_status, ['paid', 'partial'], true)) {
-                        continue;
-                    }
-
-                    $amount = (float) $payment->amount;
-                    $method = strtolower((string) $payment->payment_method);
-                    $gateway = strtolower((string) $payment->gateway);
-
-                    if ($gateway === 'paymongo' || $method === 'gcash') {
-                        $byPackage[$packageId]['gcash_revenue'] += $amount;
-                    } else {
-                        $byPackage[$packageId]['cash_revenue'] += $amount;
-                    }
-
-                    $byPackage[$packageId]['revenue'] += $amount;
-                }
-            }
-
-            $packageReport = collect($byPackage)
-                ->map(function (array $row): array {
-                    $row['gcash_revenue'] = round($row['gcash_revenue'], 2);
-                    $row['cash_revenue'] = round($row['cash_revenue'], 2);
-                    $row['revenue'] = round($row['revenue'], 2);
-
-                    return $row;
-                })
-                ->sortByDesc('total_bookings')
-                ->values()
-                ->all();
-
-            $payload['packageReport'] = $packageReport;
-            $payload['operatorReport'] = [
-                'operator_name' => (string) $request->user()->tourOperator->name,
-                'total_bookings' => $bookings->count(),
-                'pending_bookings' => $bookings->where('booking_status', 'pending')->count(),
-                'confirmed_bookings' => $bookings->where('booking_status', 'confirmed')->count(),
-                'completed_bookings' => $bookings->where('booking_status', 'completed')->count(),
-                'cancelled_bookings' => $bookings->where('booking_status', 'cancelled')->count(),
-                'revenue' => round((float) collect($packageReport)->sum('revenue'), 2),
-                'gcash_revenue' => round((float) collect($packageReport)->sum('gcash_revenue'), 2),
-                'cash_revenue' => round((float) collect($packageReport)->sum('cash_revenue'), 2),
-            ];
         }
 
         return Inertia::render('operator/Operations', $payload);

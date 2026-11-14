@@ -11,6 +11,7 @@ use App\Http\Controllers\Operator\OperatorPackageWriteController;
 use App\Http\Controllers\Operator\OperatorPaymentController;
 use App\Http\Controllers\Operator\OperatorQrController;
 use App\Http\Controllers\Operator\OperatorRefundController;
+use App\Http\Controllers\Operator\OperatorReportController;
 use App\Http\Controllers\Operator\OperatorScheduleController;
 use App\Http\Controllers\Operator\OperatorTripController;
 use App\Http\Controllers\Operator\OperatorWalkInController;
@@ -220,8 +221,23 @@ Route::middleware('role:Admin')
 
         Route::get(
             'operations/reports',
-            [OperatorOperationsController::class, 'reports']
+            [OperatorReportController::class, 'index']
         )->name('operations.reports');
+
+        Route::get(
+            'operations/reports/preview',
+            [OperatorReportController::class, 'preview']
+        )->name('operations.reports.preview');
+
+        Route::get(
+            'operations/reports/download',
+            [OperatorReportController::class, 'download']
+        )->name('operations.reports.download');
+
+        Route::get(
+            'operations/reports/export',
+            [OperatorReportController::class, 'export']
+        )->name('operations.reports.export');
 
         Route::patch(
             'operations/boats/{package}',

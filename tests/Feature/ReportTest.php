@@ -1,7 +1,5 @@
 <?php
 
-namespace Tests\Feature;
-
 use App\Models\Booking;
 use App\Models\Package;
 use App\Models\Payment;
@@ -9,21 +7,30 @@ use App\Models\PickupLocation;
 use App\Models\PickupSchedule;
 use App\Models\Role;
 use App\Models\TourDate;
+use App\Models\TourOperator;
 use App\Models\User;
 use App\Models\WeatherForecast;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Str;
 
 uses(RefreshDatabase::class);
 
 beforeEach(function () {
-    // Setup standard roles
     $this->adminRole = Role::firstOrCreate(['name' => 'Admin'], ['description' => 'Operator']);
     $this->superadminRole = Role::firstOrCreate(['name' => 'Superadmin'], ['description' => 'Superadmin']);
     $this->userRole = Role::firstOrCreate(['name' => 'User'], ['description' => 'Tourist']);
 
+    $this->tourOperator = TourOperator::query()->create([
+        'name' => 'Report Operator',
+        'slug' => 'report-op-'.Str::uuid(),
+        'is_active' => true,
+        'approval_status' => TourOperator::STATUS_ACTIVE,
+    ]);
+
     $this->operator = User::factory()->create([
         'role_id' => $this->adminRole->id,
+        'tour_operator_id' => $this->tourOperator->id,
         'email_verified_at' => now(),
     ]);
 
@@ -38,6 +45,7 @@ beforeEach(function () {
     ]);
 
     $this->package = Package::create([
+        'tour_operator_id' => $this->tourOperator->id,
         'package_name' => 'Siargao Island Hopping',
         'destination' => 'Siargao',
         'description' => 'Amazing tour experience',
@@ -54,6 +62,7 @@ beforeEach(function () {
     ]);
 
     $this->location = PickupLocation::create([
+        'tour_operator_id' => $this->tourOperator->id,
         'name' => 'General Luna Pier',
         'address' => 'General Luna, Surigao del Norte',
     ]);
@@ -100,21 +109,18 @@ beforeEach(function () {
     ]);
 });
 
-test('operator and superadmin can access reports index page', function () {
-    $response = $this->actingAs($this->operator)->get('/admin/reports');
-    $response->assertStatus(200);
+test('only superadmin can access platform reports index page', function () {
+    $this->actingAs($this->operator)->get('/admin/reports')->assertForbidden();
 
-    $superResponse = $this->actingAs($this->superadmin)->get('/admin/reports');
-    $superResponse->assertStatus(200);
+    $this->actingAs($this->superadmin)->get('/admin/reports')->assertOk();
 });
 
 test('tourist cannot access administrative reports and receives 403', function () {
-    $response = $this->actingAs($this->tourist)->get('/admin/reports');
-    $response->assertStatus(403);
+    $this->actingAs($this->tourist)->get('/admin/reports')->assertForbidden();
 });
 
 test('booking report preview returns expected kpi summaries and records', function () {
-    $response = $this->actingAs($this->operator)->getJson('/admin/reports/preview?' . http_build_query([
+    $response = $this->actingAs($this->superadmin)->getJson('/admin/reports/preview?'.http_build_query([
         'type' => 'booking',
         'package_id' => 'all',
         'booking_status' => 'all',
@@ -124,7 +130,7 @@ test('booking report preview returns expected kpi summaries and records', functi
         'date_to' => Carbon::now()->addDays(10)->format('Y-m-d'),
     ]));
 
-    $response->assertStatus(200);
+    $response->assertOk();
     $response->assertJsonPath('success', true);
     $response->assertJsonPath('data.summary.total_bookings', 1);
     $response->assertJsonPath('data.summary.confirmed_bookings', 1);
@@ -133,13 +139,13 @@ test('booking report preview returns expected kpi summaries and records', functi
 });
 
 test('tour schedule report calculates capacities and booked guests correctly', function () {
-    $response = $this->actingAs($this->operator)->getJson('/admin/reports/preview?' . http_build_query([
+    $response = $this->actingAs($this->superadmin)->getJson('/admin/reports/preview?'.http_build_query([
         'type' => 'tour-schedule',
         'date_from' => Carbon::now()->subDays(1)->format('Y-m-d'),
         'date_to' => Carbon::now()->addDays(10)->format('Y-m-d'),
     ]));
 
-    $response->assertStatus(200);
+    $response->assertOk();
     $response->assertJsonPath('success', true);
     $response->assertJsonPath('data.summary.total_schedules', 1);
     $response->assertJsonPath('data.summary.total_capacity', 20);
@@ -148,26 +154,26 @@ test('tour schedule report calculates capacities and booked guests correctly', f
 });
 
 test('payment revenue report calculates verified revenue and channel distributions', function () {
-    $response = $this->actingAs($this->operator)->getJson('/admin/reports/preview?' . http_build_query([
+    $response = $this->actingAs($this->superadmin)->getJson('/admin/reports/preview?'.http_build_query([
         'type' => 'payment',
         'date_from' => Carbon::now()->subDays(1)->format('Y-m-d'),
         'date_to' => Carbon::now()->addDays(1)->format('Y-m-d'),
     ]));
 
-    $response->assertStatus(200);
+    $response->assertOk();
     $response->assertJsonPath('success', true);
     $response->assertJsonPath('data.summary.total_revenue', 6000);
     $response->assertJsonPath('data.summary.paid_confirmed_count', 1);
 });
 
 test('tourist manifest report summarizes guests and nationality counts', function () {
-    $response = $this->actingAs($this->operator)->getJson('/admin/reports/preview?' . http_build_query([
+    $response = $this->actingAs($this->superadmin)->getJson('/admin/reports/preview?'.http_build_query([
         'type' => 'tourist',
         'date_from' => Carbon::now()->subDays(1)->format('Y-m-d'),
         'date_to' => Carbon::now()->addDays(10)->format('Y-m-d'),
     ]));
 
-    $response->assertStatus(200);
+    $response->assertOk();
     $response->assertJsonPath('success', true);
     $response->assertJsonPath('data.summary.total_lead_travelers', 1);
     $response->assertJsonPath('data.summary.total_guests', 4);
@@ -175,26 +181,26 @@ test('tourist manifest report summarizes guests and nationality counts', functio
 });
 
 test('pickup schedule report groups passenger parties by pickup locations', function () {
-    $response = $this->actingAs($this->operator)->getJson('/admin/reports/preview?' . http_build_query([
+    $response = $this->actingAs($this->superadmin)->getJson('/admin/reports/preview?'.http_build_query([
         'type' => 'pickup-schedule',
         'date_from' => Carbon::now()->subDays(1)->format('Y-m-d'),
         'date_to' => Carbon::now()->addDays(10)->format('Y-m-d'),
     ]));
 
-    $response->assertStatus(200);
+    $response->assertOk();
     $response->assertJsonPath('success', true);
     $response->assertJsonPath('data.summary.total_guests_to_pickup', 4);
     $response->assertJsonPath('data.records.0.location_name', 'General Luna Pier');
 });
 
 test('package performance report computes sales conversion and verified revenue', function () {
-    $response = $this->actingAs($this->operator)->getJson('/admin/reports/preview?' . http_build_query([
+    $response = $this->actingAs($this->superadmin)->getJson('/admin/reports/preview?'.http_build_query([
         'type' => 'package-performance',
         'date_from' => Carbon::now()->subDays(1)->format('Y-m-d'),
         'date_to' => Carbon::now()->addDays(10)->format('Y-m-d'),
     ]));
 
-    $response->assertStatus(200);
+    $response->assertOk();
     $response->assertJsonPath('success', true);
     $response->assertJsonPath('data.summary.overall_total_bookings', 1);
     $response->assertJsonPath('data.summary.overall_total_revenue', 6000);
@@ -202,13 +208,13 @@ test('package performance report computes sales conversion and verified revenue'
 });
 
 test('weather advisory report filters and summarizes maritime risk levels', function () {
-    $response = $this->actingAs($this->operator)->getJson('/admin/reports/preview?' . http_build_query([
+    $response = $this->actingAs($this->superadmin)->getJson('/admin/reports/preview?'.http_build_query([
         'type' => 'weather-advisory',
         'date_from' => Carbon::now()->subDays(1)->format('Y-m-d'),
         'date_to' => Carbon::now()->addDays(10)->format('Y-m-d'),
     ]));
 
-    $response->assertStatus(200);
+    $response->assertOk();
     $response->assertJsonPath('success', true);
     $response->assertJsonPath('data.summary.total_forecasted_dates', 1);
     $response->assertJsonPath('data.summary.safe_green_count', 1);
@@ -216,24 +222,24 @@ test('weather advisory report filters and summarizes maritime risk levels', func
 });
 
 test('empty report handles zero records without error and generates valid PDF', function () {
-    $response = $this->actingAs($this->operator)->get('/admin/reports/download?' . http_build_query([
+    $response = $this->actingAs($this->superadmin)->get('/admin/reports/download?'.http_build_query([
         'type' => 'booking',
         'date_from' => '1990-01-01',
         'date_to' => '1990-01-02',
     ]));
 
-    $response->assertStatus(200);
+    $response->assertOk();
     $response->assertHeader('content-type', 'application/pdf');
 });
 
 test('pdf download returns correct content-type and descriptive attachment filename', function () {
-    $response = $this->actingAs($this->operator)->get('/admin/reports/download?' . http_build_query([
+    $response = $this->actingAs($this->superadmin)->get('/admin/reports/download?'.http_build_query([
         'type' => 'booking',
         'date_from' => '2026-09-01',
         'date_to' => '2026-09-30',
     ]));
 
-    $response->assertStatus(200);
+    $response->assertOk();
     $response->assertHeader('content-type', 'application/pdf');
     $response->assertHeader('content-disposition', 'attachment; filename=booking-report-2026-09-01-to-2026-09-30.pdf');
 });

@@ -21,6 +21,30 @@ class ReportManager
     ];
 
     /**
+     * Report ids available to Admin Operators (own business only).
+     *
+     * @var list<string>
+     */
+    public const OPERATOR_REPORT_IDS = [
+        'booking',
+        'package-performance',
+        'operator-performance',
+        'payment',
+    ];
+
+    /**
+     * Display order for Admin Operator report cards.
+     *
+     * @var list<string>
+     */
+    private const OPERATOR_REPORT_ORDER = [
+        'booking',
+        'package-performance',
+        'operator-performance',
+        'payment',
+    ];
+
+    /**
      * Get list of registered report definitions.
      *
      * @return array<int, array<string, mixed>>
@@ -85,6 +109,27 @@ class ReportManager
                 'supported_filters' => ['date_from', 'date_to', 'advisory_level', 'package_id'],
             ],
         ];
+    }
+
+    /**
+     * Report catalog for Admin Operators (business-scoped subset).
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function getAvailableReportsForOperator(): array
+    {
+        $byId = collect($this->getAvailableReports())->keyBy('id');
+
+        return collect(self::OPERATOR_REPORT_ORDER)
+            ->map(fn (string $id) => $byId->get($id))
+            ->filter()
+            ->values()
+            ->all();
+    }
+
+    public function isOperatorReport(string $type): bool
+    {
+        return in_array($type, self::OPERATOR_REPORT_IDS, true);
     }
 
     /**

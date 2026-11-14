@@ -26,9 +26,13 @@ class OperatorPerformanceReportService extends BaseReportService
     {
         [$dateFrom, $dateTo, $periodLabel] = $this->parseDateRange($filters);
 
-        $operators = TourOperator::query()
-            ->orderBy('name')
-            ->get(['id', 'name', 'approval_status', 'is_active']);
+        $operatorsQuery = TourOperator::query()->orderBy('name');
+
+        if (! empty($filters['tour_operator_id'])) {
+            $operatorsQuery->where('id', (int) $filters['tour_operator_id']);
+        }
+
+        $operators = $operatorsQuery->get(['id', 'name', 'approval_status', 'is_active']);
 
         $records = [];
         $overallBookings = 0;

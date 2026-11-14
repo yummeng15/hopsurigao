@@ -53,6 +53,13 @@ class PaymentReportService extends BaseReportService
             $query->where('payment_method', $filters['payment_method']);
         }
 
+        if (! empty($filters['tour_operator_id'])) {
+            $operatorId = (int) $filters['tour_operator_id'];
+            $query->whereHas('booking.tourDate.package', function (Builder $q) use ($operatorId) {
+                $q->where('tour_operator_id', $operatorId);
+            });
+        }
+
         // Package filter
         if (! empty($filters['package_id']) && $filters['package_id'] !== 'all') {
             $query->whereHas('booking.tourDate', function (Builder $q) use ($filters) {

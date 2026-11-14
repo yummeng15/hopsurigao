@@ -256,30 +256,19 @@ test('operator performance report consolidates across businesses with status spl
         ->and($data['summary']['overall_cancelled_bookings'])->toBe(1);
 });
 
-test('admin operator reports page shows only own package and operator status totals', function () {
+test('admin operator reports page renders shared analytics workspace scoped to own business', function () {
     $fixture = reportFixture();
 
     $this->actingAs($fixture['admin_a'])
         ->get(route('operator.operations.reports'))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->component('operator/Operations')
-            ->where('section', 'reports')
-            ->where('operatorReport.total_bookings', 4)
-            ->where('operatorReport.pending_bookings', 1)
-            ->where('operatorReport.confirmed_bookings', 1)
-            ->where('operatorReport.completed_bookings', 1)
-            ->where('operatorReport.cancelled_bookings', 1)
-            ->where('operatorReport.gcash_revenue', 4000)
-            ->where('operatorReport.cash_revenue', 4000)
-            ->has('packageReport', 1)
-            ->where('packageReport.0.package_name', 'Alpha Island Hop')
-            ->where('packageReport.0.total_bookings', 4)
-            ->where('packageReport.0.pending_bookings', 1)
-            ->where('packageReport.0.confirmed_bookings', 1)
-            ->where('packageReport.0.completed_bookings', 1)
-            ->where('packageReport.0.cancelled_bookings', 1)
-            ->missing('packageReport.1')
+            ->component('operator/reports/Index')
+            ->has('reports', 4)
+            ->where('operatorName', $fixture['operator_a']->name)
+            ->where('endpoints.preview', route('operator.operations.reports.preview'))
+            ->has('filterOptions.packages', 1)
+            ->where('filterOptions.packages.0.package_name', 'Alpha Island Hop')
         );
 });
 

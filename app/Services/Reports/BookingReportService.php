@@ -41,27 +41,34 @@ class BookingReportService extends BaseReportService
             });
         }
 
+        if (! empty($filters['tour_operator_id'])) {
+            $operatorId = (int) $filters['tour_operator_id'];
+            $query->whereHas('tourDate.package', function (Builder $q) use ($operatorId) {
+                $q->where('tour_operator_id', $operatorId);
+            });
+        }
+
         // Filter by package
-        if (!empty($filters['package_id']) && $filters['package_id'] !== 'all') {
+        if (! empty($filters['package_id']) && $filters['package_id'] !== 'all') {
             $query->whereHas('tourDate', function (Builder $q) use ($filters) {
                 $q->where('package_id', $filters['package_id']);
             });
         }
 
         // Filter by booking status
-        if (!empty($filters['booking_status']) && $filters['booking_status'] !== 'all') {
+        if (! empty($filters['booking_status']) && $filters['booking_status'] !== 'all') {
             $query->where('booking_status', $filters['booking_status']);
         }
 
         // Filter by pickup location
-        if (!empty($filters['pickup_location_id']) && $filters['pickup_location_id'] !== 'all') {
+        if (! empty($filters['pickup_location_id']) && $filters['pickup_location_id'] !== 'all') {
             $query->whereHas('pickupSchedule', function (Builder $q) use ($filters) {
                 $q->where('pickup_location_id', $filters['pickup_location_id']);
             });
         }
 
         // Filter by nationality
-        if (!empty($filters['nationality']) && $filters['nationality'] !== 'all') {
+        if (! empty($filters['nationality']) && $filters['nationality'] !== 'all') {
             $query->where('nationality', $filters['nationality']);
         }
 
@@ -113,4 +120,3 @@ class BookingReportService extends BaseReportService
         ];
     }
 }
-

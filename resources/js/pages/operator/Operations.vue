@@ -1,4 +1,4 @@
-
+﻿
 <script setup lang="ts">
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
@@ -6,7 +6,6 @@ import { computed, ref } from 'vue';
 import {
     ArrowLeft,
     CloudSun,
-    Download,
     MapPin,
     MessageSquare,
     Ship,
@@ -60,53 +59,15 @@ type Summary = {
     cancelled: number;
 };
 
-type PackageReportRow = {
-    package_id: number;
-    package_name: string;
-    operator_name: string;
-    total_bookings: number;
-    pending_bookings: number;
-    confirmed_bookings: number;
-    completed_bookings: number;
-    cancelled_bookings: number;
-    revenue: number;
-    gcash_revenue: number;
-    cash_revenue: number;
-};
-
-type OperatorReportRow = {
-    operator_name: string;
-    total_bookings: number;
-    pending_bookings: number;
-    confirmed_bookings: number;
-    completed_bookings: number;
-    cancelled_bookings: number;
-    revenue: number;
-    gcash_revenue: number;
-    cash_revenue: number;
-};
-
-const props = withDefaults(defineProps<{
-    section: 'boats' | 'pickups' | 'weather' | 'feedback' | 'reports';
+const props = defineProps<{
+    section: 'boats' | 'pickups' | 'weather' | 'feedback';
     operatorName: string;
     boats: Boat[];
     locations: Location[];
     dates: Day[];
     feedback: Feedback[];
     summary: Summary;
-    packageReport?: PackageReportRow[];
-    operatorReport?: OperatorReportRow | null;
-}>(), {
-    packageReport: () => [],
-    operatorReport: null,
-});
-
-function money(value: number): string {
-    return `₱${Number(value || 0).toLocaleString('en-PH', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-    })}`;
-}
+}>();
 
 const busy = ref(false);
 
@@ -120,8 +81,6 @@ const sectionTitle = computed(() => {
             return 'Weather';
         case 'feedback':
             return 'Feedback';
-        case 'reports':
-            return 'Reports';
         default:
             return 'Operations';
     }
@@ -137,8 +96,6 @@ const sectionDescription = computed(() => {
             return 'Refresh forecasts and control travel for upcoming tour dates.';
         case 'feedback':
             return 'Read guest feedback for your bookings.';
-        case 'reports':
-            return 'Download your own booking reports.';
         default:
             return '';
     }
@@ -313,25 +270,6 @@ function refreshWeather(day: Day): void {
         },
     );
 }
-
-/*
-|--------------------------------------------------------------------------
-| OPERATOR REPORTS
-|--------------------------------------------------------------------------
-*/
-
-const from = ref(
-    new Date().toISOString().slice(0, 7) + '-01',
-);
-
-const to = ref(
-    new Date().toISOString().slice(0, 10),
-);
-
-const reportUrl = computed(
-    () =>
-        `/operator/operations/report.csv?from=${encodeURIComponent(from.value)}&to=${encodeURIComponent(to.value)}`,
-);
 
 </script>
 
@@ -825,200 +763,5 @@ const reportUrl = computed(
             </div>
         </section>
 
-        <!-- REPORTS -->
-        <section
-            v-if="section === 'reports'"
-            class="rounded-2xl border bg-card p-5 sm:p-6"
-        >
-            <h2 class="flex items-center gap-2 text-xl font-bold">
-                <Download class="h-5 w-5 text-primary" />
-
-                Operations Report
-            </h2>
-
-            <p class="mt-1 text-sm text-muted-foreground">
-                Booking totals for your operator only, using
-                the saved booking price (not the current package rate).
-                CSV export covers bookings created during the selected period.
-            </p>
-
-            <div class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-                <div
-                    v-for="(count, status) in summary"
-                    :key="status"
-                    class="rounded-xl border p-3"
-                >
-                    <p class="text-xs capitalize text-muted-foreground">
-                        {{ status }}
-                    </p>
-
-                    <p class="mt-1 text-2xl font-bold">
-                        {{ count }}
-                    </p>
-                </div>
-            </div>
-
-            <div class="mt-5 flex flex-wrap items-end gap-3">
-                <div>
-                    <label class="mb-1 block text-xs font-semibold">
-                        From (booking creation date)
-                    </label>
-
-                    <input
-                        v-model="from"
-                        type="date"
-                        class="rounded-lg border bg-background px-3 py-2 text-sm"
-                    />
-                </div>
-
-                <div>
-                    <label class="mb-1 block text-xs font-semibold">
-                        To
-                    </label>
-
-                    <input
-                        v-model="to"
-                        type="date"
-                        class="rounded-lg border bg-background px-3 py-2 text-sm"
-                    />
-                </div>
-
-                <a
-                    v-if="from && to && from <= to"
-                    :href="reportUrl"
-                    class="inline-flex items-center rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
-                >
-                    <Download class="mr-2 h-4 w-4" />
-                    Download CSV
-                </a>
-            </div>
-
-            <p class="mt-2 text-xs text-muted-foreground">
-                Legacy estimated prices are labeled in the export.
-                They are not verified original quotes.
-                GCash revenue is PayMongo-verified only; cash is recorded walk-in receipts.
-            </p>
-
-            <div
-                v-if="operatorReport"
-                class="mt-6 rounded-xl border p-4"
-            >
-                <h3 class="text-base font-semibold">
-                    Bookings for {{ operatorReport.operator_name }}
-                </h3>
-
-                <div class="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-8">
-                    <div class="rounded-lg border p-3">
-                        <p class="text-xs text-muted-foreground">Total</p>
-                        <p class="mt-1 text-xl font-bold">{{ operatorReport.total_bookings }}</p>
-                    </div>
-                    <div class="rounded-lg border p-3">
-                        <p class="text-xs text-muted-foreground">Pending</p>
-                        <p class="mt-1 text-xl font-bold">{{ operatorReport.pending_bookings }}</p>
-                    </div>
-                    <div class="rounded-lg border p-3">
-                        <p class="text-xs text-muted-foreground">Confirmed</p>
-                        <p class="mt-1 text-xl font-bold">{{ operatorReport.confirmed_bookings }}</p>
-                    </div>
-                    <div class="rounded-lg border p-3">
-                        <p class="text-xs text-muted-foreground">Completed</p>
-                        <p class="mt-1 text-xl font-bold">{{ operatorReport.completed_bookings }}</p>
-                    </div>
-                    <div class="rounded-lg border p-3">
-                        <p class="text-xs text-muted-foreground">Cancelled</p>
-                        <p class="mt-1 text-xl font-bold">{{ operatorReport.cancelled_bookings }}</p>
-                    </div>
-                    <div class="rounded-lg border p-3">
-                        <p class="text-xs text-muted-foreground">Total revenue</p>
-                        <p class="mt-1 text-lg font-bold">{{ money(operatorReport.revenue) }}</p>
-                    </div>
-                    <div class="rounded-lg border p-3">
-                        <p class="text-xs text-muted-foreground">GCash (PayMongo)</p>
-                        <p class="mt-1 text-lg font-bold">{{ money(operatorReport.gcash_revenue) }}</p>
-                    </div>
-                    <div class="rounded-lg border p-3">
-                        <p class="text-xs text-muted-foreground">Walk-in cash</p>
-                        <p class="mt-1 text-lg font-bold">{{ money(operatorReport.cash_revenue) }}</p>
-                    </div>
-                </div>
-            </div>
-
-            <div class="mt-6">
-                <h3 class="text-base font-semibold">
-                    Bookings per Package
-                </h3>
-
-                <p class="mt-1 text-sm text-muted-foreground">
-                    Your packages only. Each booking is counted once even with multiple payment attempts.
-                </p>
-
-                <div
-                    v-if="packageReport.length === 0"
-                    class="mt-3 rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground"
-                >
-                    No package bookings found for your operator yet.
-                </div>
-
-                <div
-                    v-else
-                    class="mt-3 overflow-x-auto rounded-xl border"
-                >
-                    <table class="w-full min-w-[920px] text-left text-sm">
-                        <thead class="border-b bg-muted/40 text-muted-foreground">
-                            <tr>
-                                <th class="px-3 py-3 font-semibold">Tour package</th>
-                                <th class="px-3 py-3 font-semibold">Operator</th>
-                                <th class="px-3 py-3 text-center font-semibold">Total</th>
-                                <th class="px-3 py-3 text-center font-semibold">Pending</th>
-                                <th class="px-3 py-3 text-center font-semibold">Confirmed</th>
-                                <th class="px-3 py-3 text-center font-semibold">Completed</th>
-                                <th class="px-3 py-3 text-center font-semibold">Cancelled</th>
-                                <th class="px-3 py-3 text-right font-semibold">GCash</th>
-                                <th class="px-3 py-3 text-right font-semibold">Cash</th>
-                                <th class="px-3 py-3 text-right font-semibold">Revenue</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr
-                                v-for="row in packageReport"
-                                :key="row.package_id"
-                                class="border-t"
-                            >
-                                <td class="px-3 py-3 font-medium">
-                                    {{ row.package_name }}
-                                </td>
-                                <td class="px-3 py-3">
-                                    {{ row.operator_name }}
-                                </td>
-                                <td class="px-3 py-3 text-center">
-                                    {{ row.total_bookings }}
-                                </td>
-                                <td class="px-3 py-3 text-center">
-                                    {{ row.pending_bookings }}
-                                </td>
-                                <td class="px-3 py-3 text-center">
-                                    {{ row.confirmed_bookings }}
-                                </td>
-                                <td class="px-3 py-3 text-center">
-                                    {{ row.completed_bookings }}
-                                </td>
-                                <td class="px-3 py-3 text-center">
-                                    {{ row.cancelled_bookings }}
-                                </td>
-                                <td class="px-3 py-3 text-right">
-                                    {{ money(row.gcash_revenue) }}
-                                </td>
-                                <td class="px-3 py-3 text-right">
-                                    {{ money(row.cash_revenue) }}
-                                </td>
-                                <td class="px-3 py-3 text-right font-semibold">
-                                    {{ money(row.revenue) }}
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </section>
     </main>
 </template>

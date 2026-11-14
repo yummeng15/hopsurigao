@@ -31,6 +31,10 @@ class PackagePerformanceReportService extends BaseReportService
                 'tourDates.bookings.payments',
             ]);
 
+        if (! empty($filters['tour_operator_id'])) {
+            $query->where('tour_operator_id', (int) $filters['tour_operator_id']);
+        }
+
         if (! empty($filters['package_id']) && $filters['package_id'] !== 'all') {
             $query->where('id', $filters['package_id']);
         }
